@@ -1,0 +1,4 @@
+(fp_lib_table
+  (lib (name tact)(type Legacy)(uri /home/eric/mystuff/documents/kicad/custom/tact.mod)(options "")(descr ""))
+  (lib (name custom)(type Legacy)(uri /home/eric/mystuff/documents/kicad/custom/custom.mod)(options "")(descr ""))
+)
