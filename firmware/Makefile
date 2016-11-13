@@ -2,7 +2,10 @@
 
 # Files to include
 C_SRC  = $(wildcard *.c)
+C_SRC += $(wildcard usb/*.c)
 C_SRC += $(wildcard lib/STM32F0xx_StdPeriph_Driver/src/*.c)
+C_SRC += $(wildcard lib/usb-fs/src/*.c)
+C_SRC += $(wildcard lib/usb-device/src/*.c)
 
 OBJECTS = $(patsubst %.c,%.o,$(C_SRC)) startup.o
 
@@ -10,14 +13,16 @@ PROJECT = rfid
 
 LIBRARIES = 
 
-INC  = -I.
+INC  = -I. -Iusb
 INC += -Ilib/CMSIS/Include -Ilib/CMSIS/Device/ST/STM32F0xx/Include
 INC += -Ilib/STM32F0xx_StdPeriph_Driver/inc
+INC += -Ilib/usb-fs/inc
+INC += -Ilib/usb-device/inc
 
 # Assembler, compiler, and linker flags
 AFLAGS  = -mlittle-endian -mthumb -mcpu=cortex-m0 -g
 CFLAGS  = $(AFLAGS) -O0 $(INC) -std=c99 -DUSE_STDPERIPH_DRIVER -Wall
-CFLAGS += -DSTM32F031
+CFLAGS += -DSTM32F042
 CFLAGS += -DUSE_STDPERIPH_DRIVER
 CFLAGS += -fdata-sections -ffunction-sections
 LFLAGS  = $(CFLAGS) -nostartfiles -Wl,--gc-sections

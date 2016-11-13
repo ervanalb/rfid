@@ -1,6 +1,7 @@
 #include "stm32f0xx_it.h"
 #include "stm32f0xx.h"
 #include "hal.h"
+#include "usb_dcd_int.h"
 
 #define LATENCY 120
 
@@ -35,4 +36,8 @@ void TIM1_BRK_UP_TRG_COM_IRQHandler() {
 void ADC1_IRQHandler() {
     reading = ADC1->DR;
     ADC1->ISR = (uint32_t)ADC_IT_EOC;
+}
+
+void USB_IRQHandler() {
+    USB_Istr();
 }

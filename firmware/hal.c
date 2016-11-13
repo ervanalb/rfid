@@ -1,7 +1,13 @@
 #include "stm32f0xx.h"
 #include "hal.h"
+#include "usbd_core.h"
+#include "usbd_desc.h"
+#include "usbd_class.h"
+#include "usbd_usr.h"
 
 #define PERIOD 384
+
+USB_CORE_HANDLE  USB_Device_dev;
 
 // Bring up all hardware
 void init() {
@@ -160,6 +166,11 @@ void init() {
     NVIC_InitStructure.NVIC_IRQChannelPriority = 0x01;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
+
+    // USB
+    SYSCFG->CFGR1 |= 1 << 4; // PA11_PA12_RMP
+    USBD_Init(&USB_Device_dev, &USR_desc,
+              &USBD_custom_cb, &USR_cb);
 }
 
 void read_off() {GPIOA->BRR = GPIO_Pin_0;}
