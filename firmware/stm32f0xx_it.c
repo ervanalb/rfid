@@ -33,11 +33,6 @@ void TIM1_BRK_UP_TRG_COM_IRQHandler() {
     TIM1->SR = ~TIM_IT_Update;
 }
 
-void ADC1_IRQHandler() {
-    reading = ADC1->DR;
-    ADC1->ISR = (uint32_t)ADC_IT_EOC;
-}
-
 void USB_IRQHandler() {
     USB_Istr();
 }

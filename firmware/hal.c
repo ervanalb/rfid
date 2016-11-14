@@ -6,6 +6,9 @@
 #include "usbd_usr.h"
 
 #define PERIOD 384
+#define BUFFER_SIZE 512
+
+uint16_t buffer[BUFFER_SIZE];
 
 USB_CORE_HANDLE  USB_Device_dev;
 
@@ -17,6 +20,7 @@ void init() {
     ADC_InitTypeDef ADC_InitStruct;
     EXTI_InitTypeDef EXTI_InitStructure;
     NVIC_InitTypeDef NVIC_InitStructure; 
+    DMA_InitTypeDef DMA_InitStructure;
 
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA | RCC_AHBPeriph_GPIOB | RCC_AHBPeriph_GPIOF, ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM14, ENABLE);
@@ -116,7 +120,7 @@ void init() {
     ADC_StructInit(&ADC_InitStruct);
     ADC_InitStruct.ADC_Resolution = ADC_Resolution_12b;
     ADC_InitStruct.ADC_ContinuousConvMode = DISABLE;
-    ADC_InitStruct.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None;
+    ADC_InitStruct.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None; // TODO Trigger on TIM1
     ADC_InitStruct.ADC_DataAlign = ADC_DataAlign_Right;
     ADC_Init(ADC1, &ADC_InitStruct);
     ADC_ChannelConfig(ADC1, ADC_Channel_2, ADC_SampleTime_1_5Cycles);
@@ -126,7 +130,23 @@ void init() {
     ADC_Cmd(ADC1, ENABLE);
     while(!ADC_GetFlagStatus(ADC1, ADC_FLAG_ADRDY));
 
-    NVIC_InitStructure.NVIC_IRQChannel = ADC1_IRQn;
+    // ADC DMA
+    DMA_DeInit(DMA1_Channel1);
+    DMA_InitStructure.DMA_BufferSize = BUFFER_SIZE;
+    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
+    DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
+    DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
+    DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)buffer;
+    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
+    DMA_InitStructure.DMA_Priority = DMA_Priority_Low;
+    DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&(ADC1->DR);
+    DMA_Init(DMA1_Channel1, &DMA_InitStructure);
+    ADC_DMACmd(ADC1, ADC_DMAReq_EOC, ENABLE);
+
+    NVIC_InitStructure.NVIC_IRQChannel = DMA_Channel1_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPriority = 0x02;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
