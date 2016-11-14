@@ -4,6 +4,7 @@
 #include "usbd_desc.h"
 #include "usb_conf.h"
 #include <string.h>
+#include "hal.h"
 
 #define TX_BUF_SIZE 128
 
@@ -19,7 +20,28 @@ static uint8_t deinit_cb(void* pdev, uint8_t cfgidx) {
 }
 
 static uint8_t setup_cb(void* pdev, USB_SETUP_REQ* req) {
-    return USBD_FAIL;
+    // Only accept vendor requests
+    if((req->bmRequest & USB_REQ_TYPE_MASK) != USB_REQ_TYPE_VENDOR) {
+        USBD_CtlError(pdev, req);
+        return USBD_FAIL;
+    }
+
+    bRequest = req->bRequest;
+
+    switch(req->bRequest) {
+        case REQUEST_DRIVE_COIL:
+            if(req->wValue) {
+                read_on();
+                drive_coil();
+            } else {
+                read_off();
+                float_coil();
+            }
+            return USBD_OK;
+
+        default:
+            return USBD_FAIL;
+    }
 }
 
 static uint8_t ctl_rx_cb(void *pdev) {

@@ -3,4 +3,6 @@
 *.map
 lib/CMSIS
 lib/STM32F0xx_StdPeriph_Driver
+lib/usb-device
+lib/usb-fs
 *.o
