@@ -28,11 +28,6 @@ void EXTI0_1_IRQHandler() {
     EXTI->PR = EXTI_Line1;
 }
 
-void TIM1_BRK_UP_TRG_COM_IRQHandler() {
-    ADC1->CR |= (uint32_t)ADC_CR_ADSTART;
-    TIM1->SR = ~TIM_IT_Update;
-}
-
 void USB_IRQHandler() {
     USB_Istr();
 }

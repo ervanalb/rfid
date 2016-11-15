@@ -109,6 +109,16 @@ void init() {
     GPIO_InitStruct.GPIO_Pin = GPIO_Pin_4;
     GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+    // ADC Read Timer
+    TIM_TimeBaseInitStruct.TIM_Prescaler = 0;
+    TIM_TimeBaseInitStruct.TIM_CounterMode = TIM_CounterMode_Up;
+    TIM_TimeBaseInitStruct.TIM_Period = PERIOD - 1;
+    TIM_TimeBaseInitStruct.TIM_ClockDivision = 0;
+    TIM_TimeBaseInitStruct.TIM_RepetitionCounter = 0;
+    TIM_TimeBaseInit(TIM1, &TIM_TimeBaseInitStruct);
+    TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_Update);
+    TIM_Cmd(TIM1, ENABLE);
+
     // Coil analog
     GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AN;
     GPIO_InitStruct.GPIO_OType = GPIO_OType_PP;
@@ -118,19 +128,14 @@ void init() {
     GPIO_Init(GPIOA, &GPIO_InitStruct);
 
     ADC_DeInit(ADC1);
-    ADC_StructInit(&ADC_InitStruct);
     ADC_InitStruct.ADC_Resolution = ADC_Resolution_12b;
     ADC_InitStruct.ADC_ContinuousConvMode = DISABLE;
-    ADC_InitStruct.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_None; // TODO Trigger on TIM1
+    ADC_InitStruct.ADC_ExternalTrigConvEdge = ADC_ExternalTrigConvEdge_Rising;
+    ADC_InitStruct.ADC_ExternalTrigConv = ADC_ExternalTrigConv_T1_TRGO;
     ADC_InitStruct.ADC_DataAlign = ADC_DataAlign_Right;
+    ADC_InitStruct.ADC_ScanDirection = ADC_ScanDirection_Upward;
     ADC_Init(ADC1, &ADC_InitStruct);
     ADC_ChannelConfig(ADC1, ADC_Channel_2, ADC_SampleTime_1_5Cycles);
-
-    ADC_GetCalibrationFactor(ADC1);
-    ADC_DMARequestModeConfig(ADC1, ADC_DMAMode_Circular);
-    ADC_DMACmd(ADC1, ENABLE);
-    ADC_Cmd(ADC1, ENABLE);
-    while(!ADC_GetFlagStatus(ADC1, ADC_FLAG_ADRDY));
 
     // ADC DMA
     DMA_DeInit(DMA1_Channel1);
@@ -147,13 +152,20 @@ void init() {
     DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&(ADC1->DR);
     DMA_Init(DMA1_Channel1, &DMA_InitStructure);
     DMA_ITConfig(DMA1_Channel1, DMA_IT_TC | DMA_IT_HT, ENABLE);
-
     DMA_Cmd(DMA1_Channel1, ENABLE);
 
     NVIC_InitStructure.NVIC_IRQChannel = DMA1_Channel1_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPriority = 0x02;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
+
+    // ADC final bringup
+    ADC_GetCalibrationFactor(ADC1);
+    ADC_DMARequestModeConfig(ADC1, ADC_DMAMode_Circular);
+    ADC_DMACmd(ADC1, ENABLE);
+    ADC_Cmd(ADC1, ENABLE);
+    while(!ADC_GetFlagStatus(ADC1, ADC_FLAG_ADRDY));
+    ADC_StartOfConversion(ADC1);
 
     // Coil digital
     GPIO_InitStruct.GPIO_Mode = GPIO_Mode_IN;
@@ -173,21 +185,6 @@ void init() {
   
     NVIC_InitStructure.NVIC_IRQChannel = EXTI0_1_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPriority = 0x00;
-    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_Init(&NVIC_InitStructure);
-
-    // ADC Read Timer
-    TIM_TimeBaseInitStruct.TIM_Prescaler = 0;
-    TIM_TimeBaseInitStruct.TIM_CounterMode = TIM_CounterMode_Up;
-    TIM_TimeBaseInitStruct.TIM_Period = PERIOD - 1;
-    TIM_TimeBaseInitStruct.TIM_ClockDivision = 0;
-    TIM_TimeBaseInitStruct.TIM_RepetitionCounter = 0;
-    TIM_TimeBaseInit(TIM1, &TIM_TimeBaseInitStruct);
-    TIM_ITConfig(TIM1, TIM_IT_Update, ENABLE);
-    TIM_Cmd(TIM1, ENABLE);
-
-    NVIC_InitStructure.NVIC_IRQChannel = TIM1_BRK_UP_TRG_COM_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPriority = 0x01;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
 
