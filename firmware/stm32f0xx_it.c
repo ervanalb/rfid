@@ -3,7 +3,7 @@
 #include "hal.h"
 #include "usb_dcd_int.h"
 
-#define LATENCY 120
+#define LATENCY 75
 
 uint16_t reading;
 
