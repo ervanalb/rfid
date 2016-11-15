@@ -24,4 +24,8 @@ void float_coil();
 void tune_coil();
 void detune_coil();
 
+// TODO neaten up these names
+int16_t items_to_read();
+void read_items(uint16_t* hws, int n);
+ 
 #endif

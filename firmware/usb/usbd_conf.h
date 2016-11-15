@@ -38,8 +38,8 @@
 #define USBD_ITF_MAX_NUM           1
 #define USB_MAX_STR_DESC_SIZ       64
 
-/*  Our custom endpoint's address  */
-#define CUSTOM_EP       0x01
+#define MAX_PACKET_SIZE             64
+#define IN_EP                       0x81  /* EP1 for data IN */
 
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */

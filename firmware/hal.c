@@ -10,6 +10,9 @@
 
 uint16_t buffer[BUFFER_SIZE];
 
+// Pointer to buffer where data is being read in RX mode (lags DMA counter)
+static int16_t read_ptr;
+
 USB_CORE_HANDLE  USB_Device_dev;
 
 // Bring up all hardware
@@ -290,4 +293,21 @@ int sd_init() {
     SPI_Cmd(SPI1, ENABLE);
 
     return 0;
+}
+
+// Calculate the number of bytes behind the DMA counter the read pointer currently is.
+// Assume no overflows.
+int16_t items_to_read() {
+    int16_t remaining = BUFFER_SIZE - DMA_GetCurrDataCounter(DMA1_Channel3) - read_ptr;
+    if(remaining < 0) remaining += BUFFER_SIZE;
+    return remaining;
+}
+
+// Read n halfwords from rx buffer into hws
+void read_items(uint16_t* hws, int n) {
+    for(int i = 0; i < n; i++) {
+        hws[i] = buffer[read_ptr];
+        read_ptr++; 
+        if(read_ptr == BUFFER_SIZE) read_ptr = 0;
+    }
 }

@@ -6,9 +6,11 @@
 #include <string.h>
 #include "hal.h"
 
-#define TX_BUF_SIZE 128
+#define MAX_PACKET_SIZE 64 
 
-static uint8_t tx_buf[TX_BUF_SIZE];
+static uint8_t need_zlp = 0;
+static uint8_t packet_sent = 0;
+static uint16_t tx_buf[MAX_PACKET_SIZE / sizeof(uint16_t)];
 static uint8_t bRequest;
 
 static uint8_t init_cb(void* pdev, uint8_t cfgidx) {
@@ -75,14 +77,54 @@ static uint8_t* config_cb(uint8_t speed, uint16_t* length) {
     return (uint8_t*)config_descriptor;
 }
 
+static void try_tx(void* pdev) {
+      uint16_t items_available;
+
+      if(packet_sent) return;
+
+      items_available = items_to_read();
+
+      if(items_available >= MAX_PACKET_SIZE / sizeof(uint16_t)) {
+            read_items(tx_buf, MAX_PACKET_SIZE / sizeof(uint16_t));
+            need_zlp = 1;
+            DCD_EP_Tx (pdev,
+                   IN_EP,
+                   (uint8_t*)tx_buf,
+                   MAX_PACKET_SIZE);
+            packet_sent = 1;
+      }
+      //else if(rx_idle() && (bytes_available || need_zlp)) {
+      //    read_bytes(USB_Tx_Buffer, bytes_available);
+      //    need_zlp = 0;
+      //    DCD_EP_Tx (pdev,
+      //               CDC_IN_EP,
+      //               USB_Tx_Buffer,
+      //               bytes_available);
+      //    packet_sent = 1;
+      //}
+}
+
+static uint8_t tx_cb(void *pdev, uint8_t epnum) {
+    // If 64 bytes available for read, send them out
+    packet_sent = 0;
+    try_tx(pdev);
+
+    return USBD_OK;
+}
+
+static uint8_t sof_cb(void *pdev) {
+    try_tx(pdev);
+    return USBD_OK;
+}
+
 USBD_Class_cb_TypeDef  USBD_custom_cb = {
-  init_cb,
-  deinit_cb,
-  setup_cb,
-  NULL, /*EP0_TxSent*/
-  ctl_rx_cb, /*EP0_RxReady*/
-  NULL, /*DataIn*/
-  NULL, /*DataOut*/
-  NULL, /*SOF */
-  config_cb,
+    init_cb,
+    deinit_cb,
+    setup_cb,
+    NULL, /*EP0_TxSent*/
+    ctl_rx_cb, /*EP0_RxReady*/
+    NULL, //tx_cb, /*DataIn*/
+    NULL, /*DataOut*/
+    NULL, //sof_cb, /*SOF */
+    config_cb,
 };
