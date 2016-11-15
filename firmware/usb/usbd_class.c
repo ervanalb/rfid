@@ -65,11 +65,20 @@ const uint8_t config_descriptor[] = {
     USB_INTERFACE_DESCRIPTOR_TYPE, /* bDescriptorType: Interface */
     0x00, /* bInterfaceNumber: Number of Interface */
     0x00, /* bAlternateSetting: Alternate setting */
-    0x00, /* bNumEndpoints: one control endpoint */
+    0x01, /* bNumEndpoints: one endpoint */
     0xFF, /* bInterfaceClass: user's interface for vendor class */
     0x00, /* bInterfaceSubClass : */
     0x00, /* nInterfaceProtocol : None */
     0x05, /* iInterface: */
+
+    /*Endpoint IN Descriptor*/
+    0x07,   /* bLength: Endpoint Descriptor size */
+    USB_ENDPOINT_DESCRIPTOR_TYPE,      /* bDescriptorType: Endpoint */
+    IN_EP,                             /* bEndpointAddress */
+    0x02,                              /* bmAttributes: Bulk */
+    LOBYTE(DATA_MAX_PACKET_SIZE),      /* wMaxPacketSize: */
+    HIBYTE(DATA_MAX_PACKET_SIZE),
+    0x00                               /* bInterval: ignore for Bulk transfer */
 };
 
 static uint8_t* config_cb(uint8_t speed, uint16_t* length) {

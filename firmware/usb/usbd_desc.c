@@ -76,7 +76,7 @@ const uint8_t USBD_DeviceDesc[USB_SIZ_DEVICE_DESC] =
   USBD_IDX_PRODUCT_STR,       /*Index of product string*/
   USBD_IDX_SERIAL_STR,        /*Index of serial number string*/
   USBD_CFG_MAX_NUM            /*bNumConfigurations*/
-} ; /* USB_DeviceDescriptor */
+}; /* USB_DeviceDescriptor */
 
 /* USB Standard Device Descriptor */
 const uint8_t USBD_DeviceQualifierDesc[USB_LEN_DEV_QUALIFIER_DESC] =
