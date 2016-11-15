@@ -36,3 +36,6 @@ void TIM1_BRK_UP_TRG_COM_IRQHandler() {
 void USB_IRQHandler() {
     USB_Istr();
 }
+
+void DMA1_Channel1_IRQHandler() {
+}

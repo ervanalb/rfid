@@ -22,7 +22,8 @@ void init() {
     NVIC_InitTypeDef NVIC_InitStructure; 
     DMA_InitTypeDef DMA_InitStructure;
 
-    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA | RCC_AHBPeriph_GPIOB | RCC_AHBPeriph_GPIOF, ENABLE);
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_GPIOA | RCC_AHBPeriph_GPIOB | RCC_AHBPeriph_GPIOF |
+                          RCC_AHBPeriph_DMA1, ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM14, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG | RCC_APB2Periph_ADC1 |
                            RCC_APB2Periph_TIM1, ENABLE);
@@ -126,7 +127,8 @@ void init() {
     ADC_ChannelConfig(ADC1, ADC_Channel_2, ADC_SampleTime_1_5Cycles);
 
     ADC_GetCalibrationFactor(ADC1);
-    ADC_ITConfig(ADC1, ADC_IT_EOC, ENABLE);
+    ADC_DMARequestModeConfig(ADC1, ADC_DMAMode_Circular);
+    ADC_DMACmd(ADC1, ENABLE);
     ADC_Cmd(ADC1, ENABLE);
     while(!ADC_GetFlagStatus(ADC1, ADC_FLAG_ADRDY));
 
@@ -144,9 +146,11 @@ void init() {
     DMA_InitStructure.DMA_Priority = DMA_Priority_Low;
     DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&(ADC1->DR);
     DMA_Init(DMA1_Channel1, &DMA_InitStructure);
-    ADC_DMACmd(ADC1, ADC_DMAReq_EOC, ENABLE);
+    DMA_ITConfig(DMA1_Channel1, DMA_IT_TC | DMA_IT_HT, ENABLE);
 
-    NVIC_InitStructure.NVIC_IRQChannel = DMA_Channel1_IRQn;
+    DMA_Cmd(DMA1_Channel1, ENABLE);
+
+    NVIC_InitStructure.NVIC_IRQChannel = DMA1_Channel1_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPriority = 0x02;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
