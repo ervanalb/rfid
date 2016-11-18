@@ -12,12 +12,23 @@ static uint8_t need_zlp = 0;
 static uint8_t packet_sent = 0;
 static uint16_t tx_buf[MAX_PACKET_SIZE / sizeof(uint16_t)];
 static uint8_t bRequest;
+static uint8_t initialized = 0;
 
 static uint8_t init_cb(void* pdev, uint8_t cfgidx) {
+    DCD_PMA_Config(pdev, IN_EP, USB_SNG_BUF, BULK_IN_TX_ADDRESS);
+
+    // Open EP IN
+    DCD_EP_Open(pdev, IN_EP, MAX_PACKET_SIZE, USB_EP_BULK);
+
+    initialized = 1;
+
     return USBD_OK;
 }
 
 static uint8_t deinit_cb(void* pdev, uint8_t cfgidx) {
+    /* Close EP IN */
+    DCD_EP_Close(pdev, IN_EP);
+
     return USBD_OK;
 }
 
@@ -53,7 +64,7 @@ static uint8_t ctl_rx_cb(void *pdev) {
 const uint8_t config_descriptor[] = {
     0x09,   /* bLength: Configuration Descriptor size */
     USB_CONFIGURATION_DESCRIPTOR_TYPE ,   /* bDescriptorType: Configuration */
-    0x12,   /* wTotalLength (LSB) */
+    0x19,   /* wTotalLength (LSB) */
     0x00,   /* wTotalLength (MSB) */
     0x01,   /* bNumberInterfaces: 1 interface */
     0x01,   /* bConfigurationValue */
@@ -76,8 +87,8 @@ const uint8_t config_descriptor[] = {
     USB_ENDPOINT_DESCRIPTOR_TYPE,      /* bDescriptorType: Endpoint */
     IN_EP,                             /* bEndpointAddress */
     0x02,                              /* bmAttributes: Bulk */
-    LOBYTE(DATA_MAX_PACKET_SIZE),      /* wMaxPacketSize: */
-    HIBYTE(DATA_MAX_PACKET_SIZE),
+    LOBYTE(MAX_PACKET_SIZE),      /* wMaxPacketSize: */
+    HIBYTE(MAX_PACKET_SIZE),
     0x00                               /* bInterval: ignore for Bulk transfer */
 };
 
@@ -122,6 +133,8 @@ static uint8_t tx_cb(void *pdev, uint8_t epnum) {
 }
 
 static uint8_t sof_cb(void *pdev) {
+    if(!initialized) return USBD_OK;
+
     try_tx(pdev);
     return USBD_OK;
 }
@@ -132,8 +145,8 @@ USBD_Class_cb_TypeDef  USBD_custom_cb = {
     setup_cb,
     NULL, /*EP0_TxSent*/
     ctl_rx_cb, /*EP0_RxReady*/
-    NULL, //tx_cb, /*DataIn*/
+    tx_cb, /*DataIn*/
     NULL, /*DataOut*/
-    NULL, //sof_cb, /*SOF */
+    sof_cb, /*SOF */
     config_cb,
 };

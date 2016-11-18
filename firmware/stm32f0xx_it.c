@@ -5,8 +5,6 @@
 
 #define LATENCY 75
 
-uint16_t reading;
-
 void NMI_Handler() {
 }
 

@@ -185,12 +185,12 @@ void init() {
     EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
     EXTI_InitStructure.EXTI_LineCmd = ENABLE;
     EXTI_Init(&EXTI_InitStructure);
-  
+
     NVIC_InitStructure.NVIC_IRQChannel = EXTI0_1_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPriority = 0x00;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
-
+  
     // USB
     SYSCFG->CFGR1 |= 1 << 4; // PA11_PA12_RMP
     USBD_Init(&USB_Device_dev, &USR_desc,
