@@ -298,7 +298,7 @@ int sd_init() {
 // Calculate the number of bytes behind the DMA counter the read pointer currently is.
 // Assume no overflows.
 int16_t items_to_read() {
-    int16_t remaining = BUFFER_SIZE - DMA_GetCurrDataCounter(DMA1_Channel3) - read_ptr;
+    int16_t remaining = BUFFER_SIZE - DMA_GetCurrDataCounter(DMA1_Channel1) - read_ptr;
     if(remaining < 0) remaining += BUFFER_SIZE;
     return remaining;
 }

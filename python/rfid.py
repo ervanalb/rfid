@@ -91,5 +91,8 @@ if __name__ == "__main__":
     codes = list(decoder(iter(values)))
     for code in codes:
         print(" ".join(["{:#02x}".format(b) for b in code]))
+
     #plt.plot(values)
+    #plt.xticks(np.arange(0, len(values), 16))
+    #plt.grid()
     #plt.show()
