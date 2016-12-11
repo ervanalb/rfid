@@ -1,6 +1,7 @@
 import usb.core
 import struct
 import numpy as np
+import sys
 
 class RFID:
     VID = 0xffff
@@ -42,6 +43,21 @@ def psk_decoder(stream):
         else:
             prev_even = sample
         odd = not odd
+
+def fsk_decoder(stream, period):
+    f = 1/period * 2 * pi
+
+    s_1 = 0
+    s_2 = 0
+    for x in stream:
+        s = x + 2 * cos(f) * s_1 - s_2
+        y = s - cmath.exp(-1j*f) * s_1
+        y_r = abs(y)
+        yield y_r
+
+        s_2 = s_1
+        s_1 = s
+        
 
 def decoder(stream):
     PREAMBLE = 250
@@ -87,12 +103,15 @@ if __name__ == "__main__":
     r.drive_coil(False)
 
     values = values[2000:-100]
-    values = list(psk_decoder(values))
+    if len(sys.argv) > 1:
+        with open(sys.argv[1], "w") as f:
+            f.write("".join(["{}\n".format(int(v)) for v in values]))
+    values = list(sk_decoder(values))
+    plt.plot(values)
     codes = list(decoder(iter(values)))
     for code in codes:
         print(" ".join(["{:#02x}".format(b) for b in code]))
 
-    #plt.plot(values)
     #plt.xticks(np.arange(0, len(values), 16))
     #plt.grid()
-    #plt.show()
+    plt.show()
