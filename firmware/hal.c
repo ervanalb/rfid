@@ -18,13 +18,13 @@ uint16_t rx_buffer[RX_BUFFER_SIZE];
 uint8_t tx_buffer[TX_BUFFER_SIZE];
 
 // Pointer to buffer where data is being read (lags DMA counter)
-static int16_t rx_read_ptr = 0;
+static volatile int16_t rx_read_ptr = 0;
 
-// Pointer to buffer where data is being written (lags write pointer)
-static int16_t tx_read_ptr = 0;
+// Pointer to buffer where data is being read (lags write pointer)
+static volatile int16_t tx_read_ptr = TX_BUFFER_SIZE;
 
 // Pointer to buffer where data is being written (leads output pointer)
-static int16_t tx_write_ptr = TX_BUFFER_SIZE;
+static volatile int16_t tx_write_ptr = 0;
 
 // Whether we are streaming
 volatile uint8_t stream_read_enabled = 0;
@@ -139,9 +139,9 @@ void init() {
     TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_Update);
     TIM_Cmd(TIM1, ENABLE);
 
-    TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_Update);
-    NVIC_InitStructure.NVIC_IRQChannel = TIM1_BRK_UP_TRG_COM_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPriority = 0x01;
+    NVIC_InitStructure.NVIC_IRQChannel = TIM14_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPriority = 0x00;
+    // TODO make sure this interrupt doesn't crash into EXTI too often
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
 
@@ -333,19 +333,18 @@ void stream_read_disable() {
 
 // These commands control whether data flows from memory into the coil
 void stream_write_enable() {
-    TIM_ITConfig(TIM1, TIM_IT_Update, DISABLE);
+    TIM_ITConfig(TIM14, TIM_IT_Update, DISABLE);
     tx_read_ptr = 0;
-    TIM_ITConfig(TIM1, TIM_IT_Update, ENABLE);
     stream_write_enabled = 1;
+    TIM_ITConfig(TIM14, TIM_IT_Update, ENABLE);
 }
 
 void stream_write_disable() {
+    TIM_ITConfig(TIM14, TIM_IT_Update, DISABLE);
     stream_write_enabled = 0;
-    TIM_ITConfig(TIM1, TIM_IT_Update, DISABLE);
+    memset(tx_buffer, 1, TX_BUFFER_SIZE);
     tx_read_ptr = TX_BUFFER_SIZE;
     tx_write_ptr = 0;
-    memset(tx_buffer, 1, TX_BUFFER_SIZE);
-    // TX buffer now has BUFFER_SIZE of free space
 }
 
 // Calculate the number of halfwords behind the DMA counter the read pointer currently is.
@@ -403,8 +402,8 @@ void EXTI0_1_IRQHandler() {
     EXTI->PR = EXTI_Line1;
 }
 
-void TIM1_BRK_UP_TRG_COM_IRQHandler() {
-    TIM1->SR = (uint16_t)~TIM_IT_Update;
+void TIM14_IRQHandler() {
+    TIM14->SR = (uint16_t)~TIM_IT_Update;
     if(tx_buffer[tx_read_ptr]) {
         coil_tune();
         coil_drive();

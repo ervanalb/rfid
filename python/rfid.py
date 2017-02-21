@@ -59,7 +59,6 @@ class RFID:
     def stream_write(self, data):
         data = struct.pack("<{}B".format(len(data)), *list(data))
         result = self.dev.write(0x02, data, timeout=int(len(data) / 125 * 1.2 + 1000))
-        print(result, len(data))
         assert result == len(data)
 
 def psk_decoder(stream):
@@ -133,18 +132,57 @@ def decoder(stream):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
+    power_on = [0] * 6250 + [1] * 6250 # 50 ms
+    start_gap = [0] * 8 # ten sample start gap
+    write_gap = [0] * 8 # ten sample write gap
+    zero = [1] * 24 # 24 samples for zero
+    one = [1] * 56 # 56 samples for one
+    tail = [1] * 6250 + power_on
+
+    code = [0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0]
+
+    stream = ([1] * 15 + [0] * 15) * 10000;
+
+    #stream = []
+    #stream += power_on + start_gap
+    #stream += one + write_gap + zero + write_gap + zero + write_gap
+    #for bit in code:
+    #    stream += one if bit else zero
+    #    stream += write_gap
+    #stream += zero + write_gap + zero + write_gap + zero + write_gap
+    #stream += tail
+
+    stream = []
+    stream += power_on + start_gap
+    stream += one + write_gap + one + write_gap + zero + write_gap
+    stream += zero + write_gap + zero + write_gap + zero + write_gap
+    stream += [1] * 6250
+    #stream += tail
+
+    #stream = []
+    #stream += power_on + start_gap
+    #stream += zero + write_gap + zero + write_gap + tail
+
     r = RFID()
-    r.led_write(True)
-    r.stream_write_enable(True)
     try:
-        #values = r.stream_read(2**17)
-        r.stream_write(([0] * 125 + [1] * 125) * 1000)
-        print("OK!")
-    finally:
+        r.led_write(True)
+        r.stream_write_enable(True)
+        r.stream_write(stream)
+        import time
+        time.sleep(0.1)
         r.stream_write_enable(False)
         r.led_write(False)
+        r.led_read(True)
+        r.stream_read_enable(True)
+        values = r.stream_read(2**16)
+        r.stream_read_enable(False)
+        r.led_read(False)
+    finally:
+        r.coil_drive(False)
+        r.led_write(False)
+        r.led_read(False)
 
-    values = values[2000:-100]
+    #values = values[2000:-100]
     if len(sys.argv) > 1:
         with open(sys.argv[1], "w") as f:
             f.write("".join(["{}\n".format(int(v)) for v in values]))
