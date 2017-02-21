@@ -2,6 +2,6 @@
 
 int main() {
     init();
-    drive_coil();
+    coil_drive();
     for(;;);
 }

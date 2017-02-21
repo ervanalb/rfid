@@ -42,16 +42,57 @@ static uint8_t setup_cb(void* pdev, USB_SETUP_REQ* req) {
     bRequest = req->bRequest;
 
     switch(req->bRequest) {
-        case REQUEST_DRIVE_COIL:
+        case REQUEST_LED_READ:
             if(req->wValue) {
-                read_on();
-                drive_coil();
+                led_read_on();
             } else {
-                read_off();
-                float_coil();
+                led_read_off();
             }
             return USBD_OK;
-
+        case REQUEST_LED_WRITE:
+            if(req->wValue) {
+                led_write_on();
+            } else {
+                led_write_off();
+            }
+            return USBD_OK;
+        case REQUEST_LED_SPOOF:
+            if(req->wValue) {
+                led_spoof_on();
+            } else {
+                led_spoof_off();
+            }
+            return USBD_OK;
+        case REQUEST_COIL_DRIVE:
+            if(req->wValue) {
+                coil_tune();
+                coil_drive();
+            } else {
+                coil_float();
+            }
+            return USBD_OK;
+        case REQUEST_COIL_TUNE:
+            if(req->wValue) {
+                coil_tune();
+            } else {
+                coil_float();
+                coil_detune();
+            }
+            return USBD_OK;
+        case REQUEST_STREAM_READ:
+            if(req->wValue) {
+                stream_read_enable();
+            } else {
+                stream_read_disable();
+            }
+            return USBD_OK;
+        case REQUEST_STREAM_WRITE:
+            if(req->wValue) {
+                stream_write_enable();
+            } else {
+                stream_write_disable();
+            }
+            return USBD_OK;
         default:
             return USBD_FAIL;
     }
@@ -98,14 +139,14 @@ static uint8_t* config_cb(uint8_t speed, uint16_t* length) {
 }
 
 static void try_tx(void* pdev) {
-      uint16_t items_available;
+      uint16_t samples_available;
 
       if(packet_sent) return;
 
-      items_available = items_to_read();
+      samples_available = stream_read_available();
 
-      if(items_available >= MAX_PACKET_SIZE / sizeof(uint16_t)) {
-            read_items(tx_buf, MAX_PACKET_SIZE / sizeof(uint16_t));
+      if(samples_available >= MAX_PACKET_SIZE / sizeof(uint16_t)) {
+            stream_read(tx_buf, MAX_PACKET_SIZE / sizeof(uint16_t));
             need_zlp = 1;
             DCD_EP_Tx (pdev,
                    IN_EP,

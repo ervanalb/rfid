@@ -4,14 +4,27 @@
 #include "usbd_desc.h"
 #include "usbd_class.h"
 #include "usbd_usr.h"
+#include <string.h>
 
+#define LATENCY 75
 #define PERIOD 384
-#define BUFFER_SIZE 512
+#define RX_BUFFER_SIZE 512
+#define TX_BUFFER_SIZE 512
 
-uint16_t buffer[BUFFER_SIZE];
+// Buffer where samples read from the card are put
+uint16_t rx_buffer[RX_BUFFER_SIZE];
 
-// Pointer to buffer where data is being read in RX mode (lags DMA counter)
-static int16_t read_ptr;
+// Buffer where samples written to the card are put
+uint8_t tx_buffer[TX_BUFFER_SIZE];
+
+// Pointer to buffer where data is being read (lags DMA counter)
+static int16_t rx_read_ptr = 0;
+
+// Pointer to buffer where data is being written (lags write pointer)
+static int16_t tx_read_ptr = 0;
+
+// Pointer to buffer where data is being written (leads output pointer)
+static int16_t tx_write_ptr = TX_BUFFER_SIZE;
 
 USB_CORE_HANDLE  USB_Device_dev;
 
@@ -32,9 +45,9 @@ void init() {
                            RCC_APB2Periph_TIM1, ENABLE);
 
     // LEDs
-    read_off();
-    write_off();
-    spoof_off();
+    led_read_off();
+    led_write_off();
+    led_spoof_off();
     GPIO_InitStruct.GPIO_Mode = GPIO_Mode_OUT;
     GPIO_InitStruct.GPIO_OType = GPIO_OType_PP;
     GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
@@ -71,7 +84,7 @@ void init() {
     TIM_OC1Init(TIM14, &TIM_OCInitStruct);
     TIM_CtrlPWMOutputs(TIM14, ENABLE);
     TIM_Cmd(TIM14, ENABLE);
-    float_coil();
+    coil_float();
 
     GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AF;
     GPIO_InitStruct.GPIO_OType = GPIO_OType_OD;
@@ -82,7 +95,7 @@ void init() {
     GPIO_PinAFConfig(GPIOB, GPIO_PinSource1, GPIO_AF_0);
 
     // Coil detune
-    tune_coil();
+    coil_tune();
     GPIO_InitStruct.GPIO_Mode = GPIO_Mode_OUT;
     GPIO_InitStruct.GPIO_OType = GPIO_OType_PP;
     GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
@@ -122,6 +135,12 @@ void init() {
     TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_Update);
     TIM_Cmd(TIM1, ENABLE);
 
+    TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_Update);
+    NVIC_InitStructure.NVIC_IRQChannel = TIM1_BRK_UP_TRG_COM_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPriority = 0x01;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
     // Coil analog
     GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AN;
     GPIO_InitStruct.GPIO_OType = GPIO_OType_PP;
@@ -142,20 +161,19 @@ void init() {
 
     // ADC DMA
     DMA_DeInit(DMA1_Channel1);
-    DMA_InitStructure.DMA_BufferSize = BUFFER_SIZE;
+    DMA_InitStructure.DMA_BufferSize = RX_BUFFER_SIZE;
     DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
     DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
     DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
     DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
     DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
     DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
-    DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)buffer;
+    DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)rx_buffer;
     DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
     DMA_InitStructure.DMA_Priority = DMA_Priority_Low;
     DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&(ADC1->DR);
     DMA_Init(DMA1_Channel1, &DMA_InitStructure);
     DMA_ITConfig(DMA1_Channel1, DMA_IT_TC | DMA_IT_HT, ENABLE);
-    DMA_Cmd(DMA1_Channel1, ENABLE);
 
     NVIC_InitStructure.NVIC_IRQChannel = DMA1_Channel1_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPriority = 0x02;
@@ -197,22 +215,22 @@ void init() {
               &USBD_custom_cb, &USR_cb);
 }
 
-void read_off() {GPIOA->BRR = GPIO_Pin_0;}
-void read_on() {GPIOA->BSRR = GPIO_Pin_0;}
+void led_read_off() {GPIOA->BRR = GPIO_Pin_0;}
+void led_read_on() {GPIOA->BSRR = GPIO_Pin_0;}
 
-void write_off() {GPIOF->BRR = GPIO_Pin_1;}
-void write_on() {GPIOF->BSRR = GPIO_Pin_1;}
+void led_write_off() {GPIOF->BRR = GPIO_Pin_1;}
+void led_write_on() {GPIOF->BSRR = GPIO_Pin_1;}
 
-void spoof_off() {GPIOF->BRR = GPIO_Pin_0;}
-void spoof_on() {GPIOF->BSRR = GPIO_Pin_0;}
+void led_spoof_off() {GPIOF->BRR = GPIO_Pin_0;}
+void led_spoof_on() {GPIOF->BSRR = GPIO_Pin_0;}
 
 uint8_t button() {return (GPIO_ReadInputData(GPIOB) & GPIO_Pin_8) == GPIO_Pin_8;}
 
-void drive_coil() {TIM14->CCER |= TIM_OutputState_Enable;}
-void float_coil() {TIM14->CCER &= ~TIM_OutputState_Enable;}
+void coil_drive() {TIM14->CCER |= TIM_OutputState_Enable;}
+void coil_float() {TIM14->CCER &= ~TIM_OutputState_Enable;}
 
-void tune_coil() {GPIOA->BSRR = GPIO_Pin_3;}
-void detune_coil() {GPIOA->BRR = GPIO_Pin_3;}
+void coil_tune() {GPIOA->BSRR = GPIO_Pin_3;}
+void coil_detune() {GPIOA->BRR = GPIO_Pin_3;}
 
 static void sd_set_cs_high() {
     while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_BSY));
@@ -295,19 +313,103 @@ int sd_init() {
     return 0;
 }
 
-// Calculate the number of bytes behind the DMA counter the read pointer currently is.
+// These commands control whether data flows from the coil into memory
+void stream_read_enable() {
+    DMA_Cmd(DMA1_Channel1, DISABLE);
+    DMA_SetCurrDataCounter(DMA1_Channel1, RX_BUFFER_SIZE);
+    rx_read_ptr = 0;
+    DMA_Cmd(DMA1_Channel1, ENABLE);
+}
+
+void stream_read_disable() {
+    DMA_Cmd(DMA1_Channel1, DISABLE);
+}
+
+// These commands control whether data flows from memory into the coil
+void stream_write_enable() {
+    TIM_ITConfig(TIM1, TIM_IT_Update, DISABLE);
+    tx_read_ptr = 0;
+    TIM_ITConfig(TIM1, TIM_IT_Update, ENABLE);
+}
+
+void stream_write_disable() {
+    TIM_ITConfig(TIM1, TIM_IT_Update, DISABLE);
+    tx_read_ptr = TX_BUFFER_SIZE;
+    tx_write_ptr = 0;
+    memset(tx_buffer, 1, TX_BUFFER_SIZE);
+    // TX buffer now has BUFFER_SIZE of free space
+}
+
+// Calculate the number of halfwords behind the DMA counter the read pointer currently is.
 // Assume no overflows.
-int16_t items_to_read() {
-    int16_t remaining = BUFFER_SIZE - DMA_GetCurrDataCounter(DMA1_Channel1) - read_ptr;
-    if(remaining < 0) remaining += BUFFER_SIZE;
+int16_t stream_read_available() {
+    int16_t remaining = RX_BUFFER_SIZE - DMA_GetCurrDataCounter(DMA1_Channel1) - rx_read_ptr;
+    if(remaining < 0) remaining += RX_BUFFER_SIZE;
     return remaining;
 }
 
-// Read n halfwords from rx buffer into hws
-void read_items(uint16_t* hws, int n) {
+// Read n samples from rx buffer into samples
+void stream_read(uint16_t* samples, int n) {
     for(int i = 0; i < n; i++) {
-        hws[i] = buffer[read_ptr];
-        read_ptr++; 
-        if(read_ptr == BUFFER_SIZE) read_ptr = 0;
+        samples[i] = rx_buffer[rx_read_ptr];
+        rx_read_ptr = (rx_read_ptr + 1) % RX_BUFFER_SIZE;
     }
+}
+
+// Returns the maximum number of samples that can be written to the tx buffer.
+// Assumes no overflows.
+int16_t stream_write_space() {
+    int16_t available = tx_read_ptr - tx_write_ptr;
+    if(available < 0) available += TX_BUFFER_SIZE;
+    return available;
+}
+
+// Write n bytes into the tx buffer
+void stream_write(uint8_t *samples, int n) {
+    for(int i=0; i<n; i++) {
+        tx_buffer[tx_write_ptr] = samples[i];
+        tx_write_ptr = (tx_write_ptr + 1) % TX_BUFFER_SIZE;
+    }
+}
+
+// INTERRUPTS
+
+void NMI_Handler() {
+}
+
+void HardFault_Handler() {
+    for(;;);
+}
+
+void SVC_Handler() {
+}
+
+void PendSV_Handler() {
+}
+
+void SysTick_Handler() {
+}
+
+void EXTI0_1_IRQHandler() {
+    TIM1->CNT = LATENCY;
+    EXTI->PR = EXTI_Line1;
+}
+
+void TIM1_BRK_UP_TRG_COM_IRQHandler() {
+    if(tx_buffer[tx_read_ptr]) {
+        coil_tune();
+        coil_drive();
+    } else {
+        coil_float();
+        coil_detune();
+    }
+    tx_buffer[tx_read_ptr] = 1;
+    tx_read_ptr = (tx_read_ptr + 1) % TX_BUFFER_SIZE;
+}
+
+void USB_IRQHandler() {
+    USB_Istr();
+}
+
+void DMA1_Channel1_IRQHandler() {
 }

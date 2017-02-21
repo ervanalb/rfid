@@ -7,25 +7,27 @@
 
 void init();
 
-void read_off();
-void read_on();
-
-void write_off();
-void write_on();
-
-void spoof_off();
-void spoof_on();
+void led_read_off();
+void led_read_on();
+void led_write_off();
+void led_write_on();
+void led_spoof_off();
+void led_spoof_on();
 
 uint8_t button();
 
-void drive_coil();
-void float_coil();
+void coil_drive();
+void coil_float();
+void coil_tune();
+void coil_detune();
 
-void tune_coil();
-void detune_coil();
-
-// TODO neaten up these names
-int16_t items_to_read();
-void read_items(uint16_t* hws, int n);
+void stream_read_enable();
+void stream_read_disable();
+void stream_write_enable();
+void stream_write_disable();
+int16_t stream_read_available();
+void stream_read(uint16_t* hws, int n);
+int16_t stream_write_space();
+void stream_write(uint8_t* bytes, int n);
  
 #endif
