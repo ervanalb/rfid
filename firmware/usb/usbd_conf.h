@@ -40,6 +40,7 @@
 
 #define MAX_PACKET_SIZE             64
 #define IN_EP                       0x81  /* EP1 for data IN */
+#define OUT_EP                      0x02  /* EP2 for data OUT */
 
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */

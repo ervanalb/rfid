@@ -10,7 +10,9 @@
 
 static uint8_t need_zlp = 0;
 static uint8_t packet_sent = 0;
+static uint8_t rx_open = 0;
 static uint16_t tx_buf[MAX_PACKET_SIZE / sizeof(uint16_t)];
+static uint8_t rx_buf[MAX_PACKET_SIZE / sizeof(uint8_t)];
 static uint8_t bRequest;
 static uint8_t initialized = 0;
 
@@ -19,6 +21,9 @@ static uint8_t init_cb(void* pdev, uint8_t cfgidx) {
 
     // Open EP IN
     DCD_EP_Open(pdev, IN_EP, MAX_PACKET_SIZE, USB_EP_BULK);
+
+    // Open EP OUT
+    DCD_EP_Open(pdev, OUT_EP, MAX_PACKET_SIZE, USB_EP_BULK);
 
     initialized = 1;
 
@@ -105,9 +110,9 @@ static uint8_t ctl_rx_cb(void *pdev) {
 const uint8_t config_descriptor[] = {
     0x09,   /* bLength: Configuration Descriptor size */
     USB_CONFIGURATION_DESCRIPTOR_TYPE ,   /* bDescriptorType: Configuration */
-    0x19,   /* wTotalLength (LSB) */
+    0x20,   /* wTotalLength (LSB) */
     0x00,   /* wTotalLength (MSB) */
-    0x01,   /* bNumberInterfaces: 1 interface */
+    0x02,   /* bNumberInterfaces: 1 interface */
     0x01,   /* bConfigurationValue */
     0x00,   /* iConfiguration: Index of string descriptor for this config */
     0x80,   /* bmAttributes: bus powered */
@@ -130,6 +135,15 @@ const uint8_t config_descriptor[] = {
     0x02,                              /* bmAttributes: Bulk */
     LOBYTE(MAX_PACKET_SIZE),      /* wMaxPacketSize: */
     HIBYTE(MAX_PACKET_SIZE),
+    0x00,                               /* bInterval: ignore for Bulk transfer */
+
+    /*Endpoint IN Descriptor*/
+    0x07,   /* bLength: Endpoint Descriptor size */
+    USB_ENDPOINT_DESCRIPTOR_TYPE,      /* bDescriptorType: Endpoint */
+    OUT_EP,                            /* bEndpointAddress */
+    0x02,                              /* bmAttributes: Bulk */
+    LOBYTE(MAX_PACKET_SIZE),      /* wMaxPacketSize: */
+    HIBYTE(MAX_PACKET_SIZE),
     0x00                               /* bInterval: ignore for Bulk transfer */
 };
 
@@ -139,30 +153,33 @@ static uint8_t* config_cb(uint8_t speed, uint16_t* length) {
 }
 
 static void try_tx(void* pdev) {
-      uint16_t samples_available;
-
       if(packet_sent) return;
 
-      samples_available = stream_read_available();
+      uint16_t samples_available = stream_read_available();
 
       if(samples_available >= MAX_PACKET_SIZE / sizeof(uint16_t)) {
             stream_read(tx_buf, MAX_PACKET_SIZE / sizeof(uint16_t));
             need_zlp = 1;
-            DCD_EP_Tx (pdev,
-                   IN_EP,
-                   (uint8_t*)tx_buf,
-                   MAX_PACKET_SIZE);
+            DCD_EP_Tx(pdev, IN_EP, (uint8_t*)tx_buf, MAX_PACKET_SIZE);
             packet_sent = 1;
+      } else if(stream_read_enabled == 0 && (samples_available > 0 || need_zlp)) {
+          stream_read(tx_buf, samples_available);
+          need_zlp = 0;
+          DCD_EP_Tx(pdev, IN_EP, (uint8_t*)tx_buf, samples_available * sizeof(uint16_t));
+          packet_sent = 1;
       }
-      //else if(rx_idle() && (bytes_available || need_zlp)) {
-      //    read_bytes(USB_Tx_Buffer, bytes_available);
-      //    need_zlp = 0;
-      //    DCD_EP_Tx (pdev,
-      //               CDC_IN_EP,
-      //               USB_Tx_Buffer,
-      //               bytes_available);
-      //    packet_sent = 1;
-      //}
+}
+
+static void try_rx(void *pdev) {
+    if(rx_open) return;
+
+    uint16_t free_space = stream_write_space();
+
+    // If 64 bytes of space are free in TX buffer, open the EP
+    if(free_space >= MAX_PACKET_SIZE / sizeof(uint8_t)) {
+        DCD_EP_PrepareRx(pdev, OUT_EP, rx_buf, MAX_PACKET_SIZE);
+        rx_open = 1;
+    }
 }
 
 static uint8_t tx_cb(void *pdev, uint8_t epnum) {
@@ -173,10 +190,21 @@ static uint8_t tx_cb(void *pdev, uint8_t epnum) {
     return USBD_OK;
 }
 
+static uint8_t rx_cb(void *pdev, uint8_t epnum) {
+    // Take the newly received data and put it in the write stream
+    uint16_t length = ((USB_CORE_HANDLE*)pdev)->dev.out_ep[epnum].xfer_count;
+    stream_write((uint8_t*)rx_buf, length);
+    rx_open = 0;
+    try_rx(pdev);
+    return USBD_OK;
+}
+
 static uint8_t sof_cb(void *pdev) {
     if(!initialized) return USBD_OK;
 
     try_tx(pdev);
+    try_rx(pdev);
+
     return USBD_OK;
 }
 
@@ -187,7 +215,7 @@ USBD_Class_cb_TypeDef  USBD_custom_cb = {
     NULL, /*EP0_TxSent*/
     ctl_rx_cb, /*EP0_RxReady*/
     tx_cb, /*DataIn*/
-    NULL, /*DataOut*/
+    rx_cb, /*DataOut*/
     sof_cb, /*SOF */
     config_cb,
 };

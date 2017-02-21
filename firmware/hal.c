@@ -26,6 +26,10 @@ static int16_t tx_read_ptr = 0;
 // Pointer to buffer where data is being written (leads output pointer)
 static int16_t tx_write_ptr = TX_BUFFER_SIZE;
 
+// Whether we are streaming
+volatile uint8_t stream_read_enabled = 0;
+volatile uint8_t stream_write_enabled = 0;
+
 USB_CORE_HANDLE  USB_Device_dev;
 
 // Bring up all hardware
@@ -319,10 +323,12 @@ void stream_read_enable() {
     DMA_SetCurrDataCounter(DMA1_Channel1, RX_BUFFER_SIZE);
     rx_read_ptr = 0;
     DMA_Cmd(DMA1_Channel1, ENABLE);
+    stream_read_enabled = 1;
 }
 
 void stream_read_disable() {
     DMA_Cmd(DMA1_Channel1, DISABLE);
+    stream_read_enabled = 0;
 }
 
 // These commands control whether data flows from memory into the coil
@@ -330,9 +336,11 @@ void stream_write_enable() {
     TIM_ITConfig(TIM1, TIM_IT_Update, DISABLE);
     tx_read_ptr = 0;
     TIM_ITConfig(TIM1, TIM_IT_Update, ENABLE);
+    stream_write_enabled = 1;
 }
 
 void stream_write_disable() {
+    stream_write_enabled = 0;
     TIM_ITConfig(TIM1, TIM_IT_Update, DISABLE);
     tx_read_ptr = TX_BUFFER_SIZE;
     tx_write_ptr = 0;

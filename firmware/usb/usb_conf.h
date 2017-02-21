@@ -46,7 +46,7 @@
 #define USB_CLOCK_SOURCE_CRS
 
 /* Endpoints used by the device */
-#define EP_NUM     (2)  /* EP0 (IN/OUT) */
+#define EP_NUM     (3)  /* EP0 (IN/OUT) */
 
 /* buffer table base address */
 #define BTABLE_ADDRESS      (0x000)
@@ -56,6 +56,7 @@
 #define ENDP0_TX_ADDRESS   (0x80)
 
 #define BULK_IN_TX_ADDRESS  (0xC0)
+#define BULK_OUT_RX_ADDRESS  (0x110)
  
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
