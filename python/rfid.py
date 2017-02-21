@@ -10,21 +10,57 @@ class RFID:
     CONTROL_IN  = 0xC1  # Host to device
     CONTROL_OUT = 0x41  # Device to host
 
-    REQUEST_DRIVE_COIL = 0x20
+    REQUEST_LED_READ     = 0x20
+    REQUEST_LED_WRITE    = 0x21
+    REQUEST_LED_SPOOF    = 0x22
+    REQUEST_COIL_DRIVE   = 0x23
+    REQUEST_COIL_TUNE    = 0x24
+    REQUEST_STREAM_READ  = 0x25
+    REQUEST_STREAM_WRITE = 0x26
 
     def __init__(self):
         self.dev = usb.core.find(idVendor=self.VID, idProduct=self.PID)
         self.dev.set_configuration()
 
-    def drive_coil(self, state):
+    def led_read(self, state):
         state = int(bool(state))
-        self.dev.ctrl_transfer(self.CONTROL_OUT, self.REQUEST_DRIVE_COIL, state, 0, b"")
+        self.dev.ctrl_transfer(self.CONTROL_OUT, self.REQUEST_LED_READ, state, 0, b"")
 
-    def read_data(self):
-        result = self.dev.read(0x81, 2**17, 1000)
+    def led_write(self, state):
+        state = int(bool(state))
+        self.dev.ctrl_transfer(self.CONTROL_OUT, self.REQUEST_LED_WRITE, state, 0, b"")
+
+    def led_spoof(self, state):
+        state = int(bool(state))
+        self.dev.ctrl_transfer(self.CONTROL_OUT, self.REQUEST_LED_SPOOF, state, 0, b"")
+
+    def coil_drive(self, state):
+        state = int(bool(state))
+        self.dev.ctrl_transfer(self.CONTROL_OUT, self.REQUEST_COIL_DRIVE, state, 0, b"")
+
+    def coil_tune(self, state):
+        state = int(bool(state))
+        self.dev.ctrl_transfer(self.CONTROL_OUT, self.REQUEST_COIL_TUNE, state, 0, b"")
+
+    def stream_read_enable(self, state):
+        state = int(bool(state))
+        self.dev.ctrl_transfer(self.CONTROL_OUT, self.REQUEST_STREAM_READ, state, 0, b"")
+
+    def stream_write_enable(self, state):
+        state = int(bool(state))
+        self.dev.ctrl_transfer(self.CONTROL_OUT, self.REQUEST_STREAM_WRITE, state, 0, b"")
+
+    def stream_read(self, count):
+        result = self.dev.read(0x81, count * 2, timeout=int(count / 125 * 1.2 + 1000))
         values = struct.unpack("<{}H".format(len(result) // 2), result)
         values = np.array(values, dtype=np.float)
         return values
+
+    def stream_write(self, data):
+        data = struct.pack("<{}B".format(len(data)), *list(data))
+        result = self.dev.write(0x02, data, timeout=int(len(data) / 125 * 1.2 + 1000))
+        print(result, len(data))
+        assert result == len(data)
 
 def psk_decoder(stream):
     LPF_ALPHA = 0.2 # dt / (RC + dt)
@@ -98,15 +134,21 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     r = RFID()
-    r.drive_coil(True)
-    values = r.read_data()
-    r.drive_coil(False)
+    r.led_write(True)
+    r.stream_write_enable(True)
+    try:
+        #values = r.stream_read(2**17)
+        r.stream_write(([0] * 125 + [1] * 125) * 1000)
+        print("OK!")
+    finally:
+        r.stream_write_enable(False)
+        r.led_write(False)
 
     values = values[2000:-100]
     if len(sys.argv) > 1:
         with open(sys.argv[1], "w") as f:
             f.write("".join(["{}\n".format(int(v)) for v in values]))
-    values = list(sk_decoder(values))
+    values = list(psk_decoder(values))
     plt.plot(values)
     codes = list(decoder(iter(values)))
     for code in codes:

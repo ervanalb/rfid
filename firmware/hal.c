@@ -404,6 +404,7 @@ void EXTI0_1_IRQHandler() {
 }
 
 void TIM1_BRK_UP_TRG_COM_IRQHandler() {
+    TIM1->SR = (uint16_t)~TIM_IT_Update;
     if(tx_buffer[tx_read_ptr]) {
         coil_tune();
         coil_drive();

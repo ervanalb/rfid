@@ -18,11 +18,10 @@ static uint8_t initialized = 0;
 
 static uint8_t init_cb(void* pdev, uint8_t cfgidx) {
     DCD_PMA_Config(pdev, IN_EP, USB_SNG_BUF, BULK_IN_TX_ADDRESS);
+    DCD_PMA_Config(pdev, OUT_EP, USB_SNG_BUF, BULK_OUT_RX_ADDRESS);
 
-    // Open EP IN
+    // Open EPs
     DCD_EP_Open(pdev, IN_EP, MAX_PACKET_SIZE, USB_EP_BULK);
-
-    // Open EP OUT
     DCD_EP_Open(pdev, OUT_EP, MAX_PACKET_SIZE, USB_EP_BULK);
 
     initialized = 1;
@@ -33,6 +32,7 @@ static uint8_t init_cb(void* pdev, uint8_t cfgidx) {
 static uint8_t deinit_cb(void* pdev, uint8_t cfgidx) {
     /* Close EP IN */
     DCD_EP_Close(pdev, IN_EP);
+    DCD_EP_Close(pdev, OUT_EP);
 
     return USBD_OK;
 }
@@ -112,7 +112,7 @@ const uint8_t config_descriptor[] = {
     USB_CONFIGURATION_DESCRIPTOR_TYPE ,   /* bDescriptorType: Configuration */
     0x20,   /* wTotalLength (LSB) */
     0x00,   /* wTotalLength (MSB) */
-    0x02,   /* bNumberInterfaces: 1 interface */
+    0x01,   /* bNumberInterfaces: 1 interface */
     0x01,   /* bConfigurationValue */
     0x00,   /* iConfiguration: Index of string descriptor for this config */
     0x80,   /* bmAttributes: bus powered */
@@ -122,7 +122,7 @@ const uint8_t config_descriptor[] = {
     USB_INTERFACE_DESCRIPTOR_TYPE, /* bDescriptorType: Interface */
     0x00, /* bInterfaceNumber: Number of Interface */
     0x00, /* bAlternateSetting: Alternate setting */
-    0x01, /* bNumEndpoints: one endpoint */
+    0x02, /* bNumEndpoints: one endpoint */
     0xFF, /* bInterfaceClass: user's interface for vendor class */
     0x00, /* bInterfaceSubClass : */
     0x00, /* nInterfaceProtocol : None */
