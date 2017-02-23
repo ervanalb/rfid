@@ -230,6 +230,9 @@ void init() {
     SYSCFG->CFGR1 |= 1 << 4; // PA11_PA12_RMP
     USBD_Init(&USB_Device_dev, &USR_desc,
               &USBD_custom_cb, &USR_cb);
+
+    stream_read_disable();
+    stream_write_disable();
 }
 
 void led_read_off() {GPIOA->BRR = GPIO_Pin_0;}
@@ -355,7 +358,7 @@ void stream_write_enable() {
 void stream_write_disable() {
     TIM_ITConfig(TIM14, TIM_IT_Update, DISABLE);
     stream_write_enabled = 0;
-    memset(tx_buffer, 1, TX_BUFFER_SIZE);
+    memset((void*)tx_buffer, 1, TX_BUFFER_SIZE);
     tx_read_ptr = TX_BUFFER_SIZE;
     tx_write_ptr = 0;
 }
