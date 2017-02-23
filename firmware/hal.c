@@ -6,16 +6,16 @@
 #include "usbd_usr.h"
 #include <string.h>
 
-#define LATENCY 75
+#define DEFAULT_LATENCY 230
 #define PERIOD 384
 #define RX_BUFFER_SIZE 512
 #define TX_BUFFER_SIZE 512
 
 // Buffer where samples read from the card are put
-uint16_t rx_buffer[RX_BUFFER_SIZE];
+static volatile uint16_t rx_buffer[RX_BUFFER_SIZE];
 
 // Buffer where samples written to the card are put
-uint8_t tx_buffer[TX_BUFFER_SIZE];
+static volatile uint8_t tx_buffer[TX_BUFFER_SIZE];
 
 // Pointer to buffer where data is being read (lags DMA counter)
 static volatile int16_t rx_read_ptr = 0;
@@ -29,6 +29,8 @@ static volatile int16_t tx_write_ptr = 0;
 // Whether we are streaming
 volatile uint8_t stream_read_enabled = 0;
 volatile uint8_t stream_write_enabled = 0;
+
+static volatile int16_t latency = DEFAULT_LATENCY;
 
 USB_CORE_HANDLE  USB_Device_dev;
 
@@ -136,7 +138,17 @@ void init() {
     TIM_TimeBaseInitStruct.TIM_ClockDivision = 0;
     TIM_TimeBaseInitStruct.TIM_RepetitionCounter = 0;
     TIM_TimeBaseInit(TIM1, &TIM_TimeBaseInitStruct);
-    TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_Update);
+
+    TIM_OCInitStruct.TIM_OCMode = TIM_OCMode_PWM2;
+    TIM_OCInitStruct.TIM_OutputState = TIM_OutputState_Disable;
+    TIM_OCInitStruct.TIM_Pulse = PERIOD / 2 - 1;
+    TIM_OCInitStruct.TIM_OCPolarity = TIM_OCPolarity_High;
+    TIM_OCInitStruct.TIM_OCIdleState = TIM_OCIdleState_Set;
+    TIM_OCInitStruct.TIM_OutputNState = TIM_OutputNState_Disable;
+    TIM_OCInitStruct.TIM_OCNPolarity = TIM_OCNPolarity_Low;
+    TIM_OCInitStruct.TIM_OCNIdleState = TIM_OCNIdleState_Reset;
+    TIM_OC1Init(TIM1, &TIM_OCInitStruct);
+    TIM_SelectOutputTrigger(TIM1, TIM_TRGOSource_OC1);
     TIM_Cmd(TIM1, ENABLE);
 
     NVIC_InitStructure.NVIC_IRQChannel = TIM14_IRQn;
@@ -153,6 +165,7 @@ void init() {
     GPIO_InitStruct.GPIO_Pin = GPIO_Pin_2;
     GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+    // ADC
     ADC_DeInit(ADC1);
     ADC_InitStruct.ADC_Resolution = ADC_Resolution_12b;
     ADC_InitStruct.ADC_ContinuousConvMode = DISABLE;
@@ -204,7 +217,7 @@ void init() {
   
     EXTI_InitStructure.EXTI_Line = EXTI_Line1;
     EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-    EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
+    EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
     EXTI_InitStructure.EXTI_LineCmd = ENABLE;
     EXTI_Init(&EXTI_InitStructure);
 
@@ -379,6 +392,10 @@ void stream_write(uint8_t *samples, int n) {
     }
 }
 
+void set_latency(int16_t l) {
+    latency = l;
+}
+
 // INTERRUPTS
 
 void NMI_Handler() {
@@ -398,7 +415,7 @@ void SysTick_Handler() {
 }
 
 void EXTI0_1_IRQHandler() {
-    TIM1->CNT = LATENCY;
+    TIM1->CNT = latency;
     EXTI->PR = EXTI_Line1;
 }
 
@@ -420,4 +437,5 @@ void USB_IRQHandler() {
 }
 
 void DMA1_Channel1_IRQHandler() {
+    DMA_ClearITPendingBit(DMA1_IT_TC1 | DMA1_IT_HT1);
 }

@@ -30,6 +30,8 @@ void stream_read(uint16_t* hws, int n);
 int16_t stream_write_space();
 void stream_write(uint8_t* bytes, int n);
 
+void set_latency(int16_t l);
+
 extern volatile uint8_t stream_read_enabled;
 extern volatile uint8_t stream_write_enabled;
  

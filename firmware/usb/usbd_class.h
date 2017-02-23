@@ -11,3 +11,4 @@ extern USBD_Class_cb_TypeDef USBD_custom_cb;
 #define REQUEST_COIL_TUNE    0x24
 #define REQUEST_STREAM_READ  0x25
 #define REQUEST_STREAM_WRITE 0x26
+#define REQUEST_LATENCY      0x27

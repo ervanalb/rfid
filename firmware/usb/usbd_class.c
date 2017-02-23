@@ -98,6 +98,9 @@ static uint8_t setup_cb(void* pdev, USB_SETUP_REQ* req) {
                 stream_write_disable();
             }
             return USBD_OK;
+        case REQUEST_LATENCY:
+            set_latency(req->wValue);
+            return USBD_OK;
         default:
             return USBD_FAIL;
     }
