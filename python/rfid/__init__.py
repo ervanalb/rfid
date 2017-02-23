@@ -17,6 +17,7 @@ class RFID:
     REQUEST_COIL_TUNE    = 0x24
     REQUEST_STREAM_READ  = 0x25
     REQUEST_STREAM_WRITE = 0x26
+    REQUEST_LATENCY      = 0x27
 
     def __init__(self):
         self.dev = usb.core.find(idVendor=self.VID, idProduct=self.PID)
@@ -60,6 +61,33 @@ class RFID:
         data = struct.pack("<{}B".format(len(data)), *list(data))
         result = self.dev.write(0x02, data, timeout=int(len(data) / 125 * 1.2 + 1000))
         assert result == len(data)
+
+    def set_latency(self, latency):
+        self.dev.ctrl_transfer(self.CONTROL_OUT, self.REQUEST_LATENCY, latency, 0, b"")
+
+def tune_latency(r):
+    r.led_read(True)
+    r.coil_drive(True)
+    results = []
+    for i in range(200, 300):
+        r.set_latency(i)
+        r.stream_read_enable(True)
+        values = r.stream_read(4096)
+        r.stream_read_enable(False)
+        v = values[1024:-1024]
+        v1 = values[::2]
+        v2 = values[1::2]
+        diff = v2 - v1
+        result = (i, np.mean(v), np.std(v), np.std(diff))
+        results.append(result)
+        print(result)
+    r.coil_drive(False)
+    r.led_read(False)
+    results = np.array(results)
+    plt.plot(results[:,0], results[:,1])
+    plt.plot(results[:,0], results[:,2])
+    plt.plot(results[:,0], results[:,3])
+    plt.show()
 
 def psk_decoder(stream):
     LPF_ALPHA = 0.2 # dt / (RC + dt)
@@ -132,46 +160,91 @@ def decoder(stream):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
+    ADJ = 0
     power_on = [0] * 6250 + [1] * 6250 # 50 ms
-    start_gap = [0] * 8 # ten sample start gap
-    write_gap = [0] * 8 # ten sample write gap
-    zero = [1] * 24 # 24 samples for zero
-    one = [1] * 56 # 56 samples for one
-    tail = [1] * 6250 + power_on
+    start_gap = [0] * (15 - ADJ) # fifteen sample start gap
+    write_gap = [0] * (10 - ADJ) # ten sample write gap
+    zero = [1] * (24 + ADJ) + write_gap# 24 samples for zero
+    one = [1] * (56 + ADJ) + write_gap # 56 samples for one
+    tail = [1] * 6250
 
-    code = [0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0]
+    def write_block(page, block_id, code):
+        assert page in range(2)
+        assert len(code) == 32
+        assert block_id in range(8)
 
-    stream = ([1] * 15 + [0] * 15) * 10000;
+        stream = []
+        stream += power_on + start_gap
+        stream += one # opcode 1
+        stream += one if page == 1 else zero # opcode 0
 
-    #stream = []
-    #stream += power_on + start_gap
-    #stream += one + write_gap + zero + write_gap + zero + write_gap
-    #for bit in code:
-    #    stream += one if bit else zero
-    #    stream += write_gap
-    #stream += zero + write_gap + zero + write_gap + zero + write_gap
-    #stream += tail
+        stream += zero # lock bit
+
+        for bit in code: # 32 bits of data
+            stream += one if bit else zero
+
+        block_bits = "{:03b}".format(block_id)
+        for bit in block_bits: # 3 bits of block_id
+            stream += one if bit == "1" else zero
+        stream += tail
+        return stream
+
+    config = [
+        0, 0, 0, 0, # master key, 4 bits
+        0, 0, 0, 0, 0, 0, 0, # spec requires 0
+        0, 1, 0, # Data Bit Rate RF/32
+        0, # spec requires 0
+        0, 0, 0, 0, 1, # Modulation PSK1
+        0, 0, # PSK frequency RF/2
+        0, # answer on request = false
+        0, # spec requires 0
+        1, 1, 1, # max block 7
+        0, # no PWD
+        0, # sequence start marker
+        0, # no fast downlink
+        0, # no inverse data
+        0, # no init delay
+    ]
+
+    from secret_key import *
 
     stream = []
-    stream += power_on + start_gap
-    stream += one + write_gap + one + write_gap + zero + write_gap
-    stream += zero + write_gap + zero + write_gap + zero + write_gap
-    stream += [1] * 6250
-    #stream += tail
 
-    #stream = []
-    #stream += power_on + start_gap
-    #stream += zero + write_gap + zero + write_gap + tail
+    stream += write_block(1, 3, [0] * 32)
+
+    stream += write_block(0, 0, config)
+
+    blkid = 1
+
+    code = [0] * 28
+
+    for i in range(0, len(code), 4):
+        bits = "".join("{:08b}".format(byte) for byte in code[i:i+4])
+        bits = [1 if bit == "1" else 0 for bit in bits]
+        stream += write_block(0, blkid, bits)
+        blkid += 1
 
     r = RFID()
+
+    #tune_latency(r)
+    #r.set_latency(230)
+
+    import time
     try:
         r.led_write(True)
+        r.coil_drive(True)
+        time.sleep(0.1)
         r.stream_write_enable(True)
         r.stream_write(stream)
-        import time
         time.sleep(0.1)
         r.stream_write_enable(False)
         r.led_write(False)
+        r.coil_drive(False)
+        time.sleep(0.1)
+
+        r.coil_drive(False)
+        time.sleep(0.1)
+        r.coil_drive(True)
         r.led_read(True)
         r.stream_read_enable(True)
         values = r.stream_read(2**16)
@@ -181,6 +254,16 @@ if __name__ == "__main__":
         r.coil_drive(False)
         r.led_write(False)
         r.led_read(False)
+
+    #v = values[2000:8000]
+    #plt.plot(values, 'ro')
+    #values1 = v[::2]
+    #values2 = v[1::2]
+    #values1_smooth = np.convolve([1,1,1,1,1,1,1,1], values1)
+    #values2_smooth = np.convolve([1,1,1,1,1,1,1,1], values2)
+    #plt.plot(values1_smooth)
+    #plt.plot(values2_smooth)
+    #plt.show()
 
     #values = values[2000:-100]
     if len(sys.argv) > 1:
