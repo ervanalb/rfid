@@ -89,7 +89,7 @@ def binary_string_to_bytes(s):
     return bytes(reversed(bytes((n >> i) & 255 for i in range(0, len(s), 8))))
 
 def pretty_bytes(s):
-    return ", ".join("{:#04x}".format(b) for b in s)
+    return " ".join("{:02x}".format(b) for b in s)
 
 #def decoder(stream):
 #    PREAMBLE = 250
