@@ -14,11 +14,7 @@ def lpf(data, cutoff=10000):
     return signal.lfilter(b, a, data)
 
 def thresh(data):
-    for x in data:
-        if x > 0:
-            yield 1
-        else:
-            yield -1
+    return "".join("1" if bit > 0 else "0" for bit in data)
 
 def demodulate(data, carrier):
     long_carrier = np.tile(carrier, len(data) // len(carrier) + 1)[0:len(data)]
@@ -58,12 +54,12 @@ def decoder(stream, bit_width=8):
     decoded_waveform = np.hstack((np.zeros(i), np.reshape(np.tile(decoded_bits, bit_width), (bit_width, -1)).T.flatten()))
     return (decoded_bits, decoded_waveform)
 
-def find_cycles(stream, length=224):
+def find_cycles(stream, length):
     match = 0
-    cycle = []
+    cycle = ""
     for x in stream:
         if len(cycle) < length:
-            cycle.append(x)
+            cycle = cycle + x
             continue
 
         if cycle[0] == x:
@@ -73,22 +69,27 @@ def find_cycles(stream, length=224):
                 match = 0
         else:
             match = 0
-        cycle = cycle[1:] + [x]
+        cycle = cycle[1:] + x
 
 def sort_cycle(cycle, reverse_ok=True):
-    shifted = lambda i: np.hstack((cycle[i:], cycle[0:i]))
-    tonum = lambda c: int("".join("1" if bit > 0 else "0" for bit in c), 2)
+    shifted = lambda i: cycle[i:] + cycle[0:i]
     fromnum = lambda n: ("{:0" + str(len(cycle)) + "b}").format(n)
 
-    numbers = [tonum(shifted(i)) for i in range(len(cycle))]
+    numbers = [int(shifted(i), 2) for i in range(len(cycle))]
     if reverse_ok:
-        numbers += [2**len(cycle)+~tonum(shifted(i)) for i in range(len(cycle))]
+        numbers += [2**len(cycle)+~int(shifted(i), 2) for i in range(len(cycle))]
     best = min(numbers)
     return fromnum(best)
+
+def bytes_to_binary_string(s):
+    return "".join("{:08b}".format(b) for b in s)
 
 def binary_string_to_bytes(s):
     n = int(s, 2)
     return bytes(reversed(bytes((n >> i) & 255 for i in range(0, len(s), 8))))
+
+def pretty_bytes(s):
+    return ", ".join("{:#04x}".format(b) for b in s)
 
 #def decoder(stream):
 #    PREAMBLE = 250
