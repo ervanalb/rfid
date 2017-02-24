@@ -1,18 +1,17 @@
+import numpy as np
+from scipy import signal
 import cmath
 
-def hpf(data, alpha=0.7):
-    y = 0
-    lx = 0
-    for x in data:
-        y = alpha * (y + x - lx)
-        yield y
-        lx = x
+FREQ = 125000.
+NYQ_FREQ = FREQ / 2.
 
-def lpf(data, alpha=0.2):
-    y = 0
-    for x in data:
-        y = alpha * x + (1 - alpha) * y
-        yield y
+def hpf(data, cutoff=1000):
+    b, a = signal.butter(1, cutoff / NYQ_FREQ, 'high')
+    return signal.lfilter(b, a, data)
+
+def lpf(data, cutoff=10000):
+    b, a = signal.butter(1, cutoff / NYQ_FREQ, 'low')
+    return signal.lfilter(b, a, data)
 
 def thresh(data):
     for x in data:
@@ -22,18 +21,16 @@ def thresh(data):
             yield -1
 
 def demodulate(data, carrier):
-    for (s1, s2) in zip(data, carrier):
-        yield s1 * s2
+    long_carrier = np.tile(carrier, len(data) // len(carrier) + 1)[0:len(data)]
+    return data * long_carrier
 
 def carrier(period, duty=0.5):
-    while True:
-        for i in range(period):
-            yield 1 if i < period * duty else -1
+    return np.array([1. if i < period * duty else -1. for i in range(period)])
 
 def psk_demodulator(data):
     data = hpf(data)
     data = demodulate(data, carrier(2))
-    data = lpf(data)
+    #data = lpf(data)
     return data
 
 def fsk_demodulator(stream, period):
@@ -52,14 +49,13 @@ def fsk_demodulator(stream, period):
 
 def decoder(stream, bit_width=8):
     #stream = list(thresh(stream))
-    resample_bits = lambda i: [stream[j:j+bit_width] for j in range(i, len(stream), bit_width)]
-    square_of_sum = lambda data: sum([sum(bit)**2 for bit in data])
+    resample_bits = lambda i: np.reshape(np.hstack(((stream[i:], np.zeros((-len(stream) + i) % bit_width)))), (-1, bit_width))
 
     resamp = [resample_bits(i) for i in range(bit_width)]
-    strengths = [square_of_sum(data) for data in resamp]
+    strengths = [np.sum(np.sum(data, axis=1) ** 2) for data in resamp]
     i = strengths.index(max(strengths))
-    decoded_bits = [sum(bit) / bit_width for bit in resamp[i]]
-    decoded_waveform = ([0] * i) + [bit for bit in decoded_bits for _ in range(bit_width)]
+    decoded_bits = np.sum(resamp[i], axis=1) / bit_width
+    decoded_waveform = np.hstack((np.zeros(i), np.reshape(np.tile(decoded_bits, bit_width), (bit_width, -1)).T.flatten()))
     return (decoded_bits, decoded_waveform)
 
 def find_cycles(stream, length=224):
@@ -80,7 +76,7 @@ def find_cycles(stream, length=224):
         cycle = cycle[1:] + [x]
 
 def sort_cycle(cycle, reverse_ok=True):
-    shifted = lambda i: cycle[i:] + cycle[0:i]
+    shifted = lambda i: np.hstack((cycle[i:], cycle[0:i]))
     tonum = lambda c: int("".join("1" if bit > 0 else "0" for bit in c), 2)
     fromnum = lambda n: ("{:0" + str(len(cycle)) + "b}").format(n)
 

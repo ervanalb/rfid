@@ -72,7 +72,7 @@ class RFID:
             self.led_read(True)
             self.coil_drive(True)
             self.stream_read_enable(True)
-            return self.stream_read(n_samples)
+            return np.array(self.stream_read(n_samples), dtype=np.int16)
         finally:
             self.stream_read_enable(False)
             self.coil_drive(False)
