@@ -5,10 +5,10 @@ r = rfid.RFID()
 samples = r.raw_read(2**15)
 samples_demod = rfid.psk_demodulator(samples)
 (decoded_bits, decoded_waveform) = rfid.decoder(samples_demod, bit_width=32)
-plt.plot(list(samples_demod))
-plt.plot(list(decoded_waveform))
+plt.plot(samples_demod)
+plt.plot(decoded_waveform)
 plt.show()
-cycles = list(rfid.find_cycles(rfid.thresh(decoded_bits), length=224))
+cycles = rfid.find_cycles(rfid.thresh(decoded_bits), length=224)
 
 seen = {}
 for cycle in cycles:
