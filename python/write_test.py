@@ -11,16 +11,16 @@ if data_sorted != data:
     print("Warning! Data cycles to", rfid.pretty_bytes(data_sorted))
 
 r = rfid.RFID()
-samples = rfid.t5577.write_card_basic(data, bit_width=32, modulation="psk1")
+samples = rfid.t5577.write_card_basic(data, bit_width=50, modulation="fsk1")
 r.raw_write(samples)
 
 samples = r.raw_read(2**15)
-samples_demod = rfid.psk_demodulator(samples)
-(decoded_bits, decoded_waveform) = rfid.decoder(samples_demod, bit_width=32)
+samples_demod = rfid.fsk_demodulator(samples)
+(decoded_bits, decoded_waveform) = rfid.decoder(samples_demod, bit_width=50)
 plt.plot(samples_demod)
 plt.plot(decoded_waveform)
 plt.show()
-cycles = rfid.find_cycles(rfid.thresh(decoded_bits), length=224)
+cycles = rfid.find_cycles(rfid.thresh(decoded_bits), length=96)
 for cycle in cycles:
     cycle_bytes = rfid.binary_string_to_bytes(rfid.sort_cycle(cycle))
     if cycle_bytes == data_sorted:

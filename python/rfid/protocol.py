@@ -1,6 +1,7 @@
 import numpy as np
 from scipy import signal
 import cmath
+import math
 
 FREQ = 125000.
 NYQ_FREQ = FREQ / 2.
@@ -29,19 +30,31 @@ def psk_demodulator(data):
     #data = lpf(data)
     return data
 
-def fsk_demodulator(stream, period):
-    f = 1/period * 2 * pi
+def fsk_demodulator(data, p0=8, p1=10, alpha=0.95):
+    data0 = np.abs(goertzel(data, p0, alpha))
+    data1 = np.abs(goertzel(data, p1, alpha))
+    return hpf(data1 - data0)
 
-    s_1 = 0
-    s_2 = 0
-    for x in stream:
-        s = x + 2 * cos(f) * s_1 - s_2
-        y = s - cmath.exp(-1j*f) * s_1
-        y_r = abs(y)
-        yield y_r
+def goertzel(stream, period, alpha=0.95):
+    w0 = 1/period * 2 * math.pi
 
-        s_2 = s_1
-        s_1 = s
+    a = [1, -2 * math.cos(w0) * alpha, alpha ** 2]
+    b = [1]
+
+    s = signal.lfilter(b, a, stream)
+
+    a = [1]
+    b = [1, -cmath.exp(-1j*w0)]
+
+    y = signal.lfilter(b, a, s)
+
+    return y
+
+def decode_manchester(bits):
+    carrier = ("01" * ((len(bits) + 1) // 2))[0:len(bits)]
+    carrier = int(carrier, 2)
+    signal = int(bits, 2)
+    return ("{:0" + str(len(bits)) + "b}").format(carrier ^ signal)
 
 def decoder(stream, bit_width=8):
     #stream = list(thresh(stream))
