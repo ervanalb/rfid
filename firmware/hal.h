@@ -14,7 +14,7 @@ void led_write_on();
 void led_spoof_off();
 void led_spoof_on();
 
-uint8_t button();
+int button();
 
 void coil_drive();
 void coil_float();

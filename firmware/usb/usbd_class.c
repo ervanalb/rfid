@@ -5,6 +5,7 @@
 #include "usb_conf.h"
 #include <string.h>
 #include "hal.h"
+#include "main.h"
 
 #define MAX_PACKET_SIZE 64 
 
@@ -48,6 +49,7 @@ static uint8_t setup_cb(void* pdev, USB_SETUP_REQ* req) {
 
     switch(req->bRequest) {
         case REQUEST_LED_READ:
+            transition(STATE_REMOTE);
             if(req->wValue) {
                 led_read_on();
             } else {
@@ -55,6 +57,7 @@ static uint8_t setup_cb(void* pdev, USB_SETUP_REQ* req) {
             }
             return USBD_OK;
         case REQUEST_LED_WRITE:
+            transition(STATE_REMOTE);
             if(req->wValue) {
                 led_write_on();
             } else {
@@ -62,6 +65,7 @@ static uint8_t setup_cb(void* pdev, USB_SETUP_REQ* req) {
             }
             return USBD_OK;
         case REQUEST_LED_SPOOF:
+            transition(STATE_REMOTE);
             if(req->wValue) {
                 led_spoof_on();
             } else {
@@ -69,6 +73,7 @@ static uint8_t setup_cb(void* pdev, USB_SETUP_REQ* req) {
             }
             return USBD_OK;
         case REQUEST_COIL_DRIVE:
+            transition(STATE_REMOTE);
             if(req->wValue) {
                 coil_tune();
                 coil_drive();
@@ -77,6 +82,7 @@ static uint8_t setup_cb(void* pdev, USB_SETUP_REQ* req) {
             }
             return USBD_OK;
         case REQUEST_COIL_TUNE:
+            transition(STATE_REMOTE);
             if(req->wValue) {
                 coil_tune();
             } else {
@@ -85,6 +91,7 @@ static uint8_t setup_cb(void* pdev, USB_SETUP_REQ* req) {
             }
             return USBD_OK;
         case REQUEST_STREAM_READ:
+            transition(STATE_REMOTE);
             if(req->wValue) {
                 stream_read_enable();
             } else {
@@ -92,6 +99,7 @@ static uint8_t setup_cb(void* pdev, USB_SETUP_REQ* req) {
             }
             return USBD_OK;
         case REQUEST_STREAM_WRITE:
+            transition(STATE_REMOTE);
             if(req->wValue) {
                 stream_write_enable();
             } else {
@@ -99,6 +107,7 @@ static uint8_t setup_cb(void* pdev, USB_SETUP_REQ* req) {
             }
             return USBD_OK;
         case REQUEST_LATENCY:
+            transition(STATE_REMOTE);
             set_latency(req->wValue);
             return USBD_OK;
         default:

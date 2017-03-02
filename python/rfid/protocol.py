@@ -6,47 +6,60 @@ import math
 FREQ = 125000.
 NYQ_FREQ = FREQ / 2.
 
-def hpf(data, cutoff=1000):
-    b, a = signal.butter(1, cutoff / NYQ_FREQ, 'high')
+def hpf(data, cutoff=62.5):
+    b, a = signal.butter(1, 2 / cutoff, 'high')
     return signal.lfilter(b, a, data)
 
-def lpf(data, cutoff=10000):
-    b, a = signal.butter(1, cutoff / NYQ_FREQ, 'low')
+def lpf(data, cutoff=6.25):
+    b, a = signal.butter(1, 2 / cutoff, 'low')
     return signal.lfilter(b, a, data)
 
 def thresh(data):
     return "".join("1" if bit > 0 else "0" for bit in data)
 
-def demodulate(data, carrier):
-    long_carrier = np.tile(carrier, len(data) // len(carrier) + 1)[0:len(data)]
-    return data * long_carrier
+def sine_sqw(x, period):
+    x = x % period
+    if x == 0 or x == period / 2:
+        return 0.
+    elif x < period / 2:
+        return 1.
+    else:
+        return -1.
 
-def carrier(period, duty=0.5):
-    return np.array([1. if i < period * duty else -1. for i in range(period)])
+def cosine_sqw(x, period):
+    return sine_sqw(x + period / 4, period)
+
+def carrier(period, length):
+    return np.cos((np.arange(length) % period) * 2 * np.pi / period)
+
+def complex_carrier(period, length):
+    return np.exp(1j * (np.arange(length) % period) * 2 * np.pi / period)
 
 def psk_demodulator(data):
     data = hpf(data)
-    data = demodulate(data, carrier(2))
+    data = data * carrier(2, len(data))
     #data = lpf(data)
     return data
 
-def fsk_demodulator(data, p0=8, p1=10, alpha=0.95):
+def fsk_demodulator(data, p0=10, p1=8, alpha=0.95):
     data0 = np.abs(goertzel(data, p0, alpha))
     data1 = np.abs(goertzel(data, p1, alpha))
-    return hpf(data1 - data0)
+    return hpf(data1 - data0, 1000)
 
 def goertzel(stream, period, alpha=0.95):
     w0 = 1/period * 2 * math.pi
 
-    a = [1, -2 * math.cos(w0) * alpha, alpha ** 2]
-    b = [1]
+    #a = [1, -2 * math.cos(w0) * alpha, alpha ** 2]
+    #b = [1]
 
-    s = signal.lfilter(b, a, stream)
+    #s = signal.lfilter(b, a, stream)
 
-    a = [1]
-    b = [1, -cmath.exp(-1j*w0)]
+    #a = [1]
+    #b = [1, -cmath.exp(-1j*w0)]
 
-    y = signal.lfilter(b, a, s)
+    #y = signal.lfilter(b, a, s)
+
+    y = signal.lfilter([1], [1, -alpha * cmath.exp(1j*w0)], stream)
 
     return y
 
@@ -66,6 +79,36 @@ def decoder(stream, bit_width=8):
     decoded_bits = np.sum(resamp[i], axis=1) / bit_width
     decoded_waveform = np.hstack((np.zeros(i), np.reshape(np.tile(decoded_bits, bit_width), (bit_width, -1)).T.flatten()))
     return (decoded_bits, decoded_waveform)
+
+def simple_decoder(stream, bit_width=8):
+    bits = thresh(lpf(stream))
+    t = 0
+    last_b = bits[0]
+    t_arr = []
+    w_arr = []
+    b_arr = []
+    bit_sum = 0
+    bit_count = 0
+    for b, s in zip(bits, stream):
+        t = t + 1
+        if t >= bit_width:
+            bit_val = bit_sum / bit_count
+            w_arr += [bit_val] * bit_count
+            b_arr.append(bit_val)
+            bit_sum = 0
+            bit_count = 0
+            t -= bit_width
+        t_arr.append(t)
+
+        bit_sum += s
+        bit_count += 1
+        if b != last_b:
+            last_b = b
+            if t > 0 and t < bit_width / 2:
+                t -= 1
+            if t >= bit_width / 2:
+                t += 1
+    return (np.array(t_arr), np.array(w_arr), np.array(b_arr))
 
 def find_cycles(stream, length):
     match = 0

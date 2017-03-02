@@ -244,7 +244,7 @@ void led_write_on() {GPIOF->BSRR = GPIO_Pin_1;}
 void led_spoof_off() {GPIOF->BRR = GPIO_Pin_0;}
 void led_spoof_on() {GPIOF->BSRR = GPIO_Pin_0;}
 
-uint8_t button() {return (GPIO_ReadInputData(GPIOB) & GPIO_Pin_8) == GPIO_Pin_8;}
+int button() {return (GPIO_ReadInputData(GPIOB) & GPIO_Pin_8) == GPIO_Pin_8;}
 
 void coil_drive() {TIM14->CCER |= TIM_OutputState_Enable;}
 void coil_float() {TIM14->CCER &= ~TIM_OutputState_Enable;}
