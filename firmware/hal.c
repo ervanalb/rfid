@@ -8,27 +8,28 @@
 
 #define DEFAULT_LATENCY 230
 #define PERIOD 384
+
 #define RX_BUFFER_SIZE 512
 #define TX_BUFFER_SIZE 512
 
 // Buffer where samples read from the card are put
-static volatile uint16_t rx_buffer[RX_BUFFER_SIZE];
+static volatile int16_t rx_buffer[RX_BUFFER_SIZE];
 
 // Buffer where samples written to the card are put
-static volatile uint8_t tx_buffer[TX_BUFFER_SIZE];
+static volatile int8_t tx_buffer[TX_BUFFER_SIZE];
 
 // Pointer to buffer where data is being read (lags DMA counter)
-static volatile int16_t rx_read_ptr = 0;
+static volatile int rx_read_ptr = 0;
 
 // Pointer to buffer where data is being read (lags write pointer)
-static volatile int16_t tx_read_ptr = TX_BUFFER_SIZE;
+static volatile int tx_read_ptr = TX_BUFFER_SIZE;
 
 // Pointer to buffer where data is being written (leads output pointer)
 static volatile int16_t tx_write_ptr = 0;
 
 // Whether we are streaming
-volatile uint8_t stream_read_enabled = 0;
-volatile uint8_t stream_write_enabled = 0;
+volatile int stream_read_enabled = 0;
+volatile int stream_write_enabled = 0;
 
 static volatile int16_t latency = DEFAULT_LATENCY;
 
@@ -365,14 +366,14 @@ void stream_write_disable() {
 
 // Calculate the number of halfwords behind the DMA counter the read pointer currently is.
 // Assume no overflows.
-int16_t stream_read_available() {
-    int16_t remaining = RX_BUFFER_SIZE - DMA_GetCurrDataCounter(DMA1_Channel1) - rx_read_ptr;
+int stream_read_available() {
+    int remaining = RX_BUFFER_SIZE - DMA_GetCurrDataCounter(DMA1_Channel1) - rx_read_ptr;
     if(remaining < 0) remaining += RX_BUFFER_SIZE;
     return remaining;
 }
 
 // Read n samples from rx buffer into samples
-void stream_read(uint16_t* samples, int n) {
+void stream_read(int16_t* samples, int n) {
     for(int i = 0; i < n; i++) {
         samples[i] = rx_buffer[rx_read_ptr];
         rx_read_ptr = (rx_read_ptr + 1) % RX_BUFFER_SIZE;
@@ -381,14 +382,14 @@ void stream_read(uint16_t* samples, int n) {
 
 // Returns the maximum number of samples that can be written to the tx buffer.
 // Assumes no overflows.
-int16_t stream_write_space() {
-    int16_t available = tx_read_ptr - tx_write_ptr;
+int stream_write_space() {
+    int available = tx_read_ptr - tx_write_ptr;
     if(available < 0) available += TX_BUFFER_SIZE;
     return available;
 }
 
 // Write n bytes into the tx buffer
-void stream_write(uint8_t *samples, int n) {
+void stream_write(int8_t *samples, int n) {
     for(int i=0; i<n; i++) {
         tx_buffer[tx_write_ptr] = samples[i];
         tx_write_ptr = (tx_write_ptr + 1) % TX_BUFFER_SIZE;

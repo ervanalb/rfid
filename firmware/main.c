@@ -1,21 +1,26 @@
 #include "main.h"
 #include "hal.h"
 #include "button.h"
+#include "protocol.h"
 
 enum state state = STATE_REMOTE;
 
 int main() {
+    protocol_change(&protocol_fns[0]);
     init();
     transition(STATE_READ);
     for(;;) {
         switch(state) {
             case STATE_READ:
+                protocol->read();
                 if(button_clicked()) transition(STATE_WRITE);
                 break;
             case STATE_WRITE:
+                protocol->write();
                 if(button_clicked()) transition(STATE_SPOOF);
                 break;
             case STATE_SPOOF:
+                protocol->spoof();
                 if(button_clicked()) transition(STATE_READ);
                 break;
             case STATE_REMOTE:

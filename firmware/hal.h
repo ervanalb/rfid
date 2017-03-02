@@ -25,14 +25,14 @@ void stream_read_enable();
 void stream_read_disable();
 void stream_write_enable();
 void stream_write_disable();
-int16_t stream_read_available();
-void stream_read(uint16_t* hws, int n);
-int16_t stream_write_space();
-void stream_write(uint8_t* bytes, int n);
+int stream_read_available();
+void stream_read(int16_t* hws, int n);
+int stream_write_space();
+void stream_write(int8_t* bytes, int n);
 
 void set_latency(int16_t l);
 
-extern volatile uint8_t stream_read_enabled;
-extern volatile uint8_t stream_write_enabled;
+extern volatile int stream_read_enabled;
+extern volatile int stream_write_enabled;
  
 #endif

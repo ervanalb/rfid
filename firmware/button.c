@@ -1,7 +1,7 @@
 #include "button.h"
 #include "hal.h"
 
-#define BUTTON_REPS 100
+#define BUTTON_REPS 500
 
 int button_clicked() {
     static int button_n = 0;
