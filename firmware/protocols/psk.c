@@ -3,6 +3,8 @@
 #include "hal.h"
 #include <string.h>
 
+// READ
+
 // Returns - if o1 < o2
 // Returns + in o1 > o2
 // Returns 0 in o1 = o2
@@ -97,7 +99,6 @@ void protocol_psk_init() {
 void protocol_psk_read() {
     int available = stream_read_available();
     if(available == 0) return;
-    if(available < 256) return; // TEMP, REMOVE ME
     if(available > sizeof(protocol_state.psk.read_buffer) / sizeof(int16_t)) available = sizeof(protocol_state.psk.read_buffer) / sizeof(int16_t);
     stream_read(protocol_state.psk.read_buffer, available);
 
@@ -139,8 +140,31 @@ void protocol_psk_read() {
     }
 }
 
-void protocol_psk_write() {
+// WRITE
+
+static void write_next() {
+    switch(protocol_state.psk.write_state) {
+        case WRITE_IDLE:
+            protocol_state.psk.write_val = 1;
+            protocol_state.psk.run_length = 10;
+            break;
+    }
 }
+
+void protocol_psk_write() {
+    int available = stream_write_space();
+    while(available > 0) {
+        if(protocol_state.psk.run_length == 0) {
+            write_next();
+            if(protocol_state.psk.run_length == 0) return;
+        }
+        stream_write_byte(protocol_state.psk.write_val);
+        protocol_state.psk.run_length--;
+        available--;
+    }
+}
+
+// SPOOF
 
 void protocol_psk_spoof() {
 }

@@ -10,11 +10,14 @@ struct protocol_psk_params {
 };
 
 struct protocol_psk_state {
+    // SHARED
     int bit_width;
     int cycle_length;
     int repeats_until_valid;
+    uint8_t decoded_bytes[28];
 
-    int16_t read_buffer[512];
+    // READER
+    int16_t read_buffer[256];
     struct {
         int32_t alpha; // Alpha as a 16.16 fixed point number
         int32_t prev_x;
@@ -38,5 +41,11 @@ struct protocol_psk_state {
 
     int8_t decoded_bits[224];
     int decoded_bits_ptr;
-    uint8_t decoded_bytes[28];
+
+    // WRITER
+    int8_t write_val;
+    int run_length;
+    enum {
+        WRITE_IDLE
+    } write_state;
 };

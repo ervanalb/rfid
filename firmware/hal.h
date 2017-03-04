@@ -29,6 +29,7 @@ int stream_read_available();
 void stream_read(int16_t* hws, int n);
 int stream_write_space();
 void stream_write(int8_t* bytes, int n);
+void stream_write_byte(int8_t byte);
 
 void set_latency(int16_t l);
 

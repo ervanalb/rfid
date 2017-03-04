@@ -396,6 +396,12 @@ void stream_write(int8_t *samples, int n) {
     }
 }
 
+// Write 1 byte into the tx buffer
+void stream_write_byte(int8_t byte) {
+    tx_buffer[tx_write_ptr] = byte;
+    tx_write_ptr = (tx_write_ptr + 1) % TX_BUFFER_SIZE;
+}
+
 void set_latency(int16_t l) {
     latency = l;
 }
