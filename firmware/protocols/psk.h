@@ -38,4 +38,5 @@ struct protocol_psk_state {
 
     int8_t decoded_bits[224];
     int decoded_bits_ptr;
+    uint8_t decoded_bytes[28];
 };

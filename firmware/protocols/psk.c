@@ -3,7 +3,65 @@
 #include "hal.h"
 #include <string.h>
 
+// Returns - if o1 < o2
+// Returns + in o1 > o2
+// Returns 0 in o1 = o2
+static int cmp(int o1, int o2) {
+    for(int i=0; i<protocol_state.psk.cycle_length; i++) {
+        int8_t c = protocol_state.psk.decoded_bits[o1] - protocol_state.psk.decoded_bits[o2];
+        if(c != 0) return c;
+        o1++;
+        if(o1 == protocol_state.psk.cycle_length) o1 = 0;
+        o2++;
+        if(o2 == protocol_state.psk.cycle_length) o2 = 0;
+    }
+    return 0;
+}
+
+// Returns - if ~o1 < o2
+// Returns + in ~o1 > o2
+// Returns 0 in ~o1 = o2
+static int cmp_inv(int o1, int o2) {
+    for(int i=0; i<protocol_state.psk.cycle_length; i++) {
+        int8_t c = 1 - protocol_state.psk.decoded_bits[o1] - protocol_state.psk.decoded_bits[o2];
+        if(c != 0) return c;
+        o1++;
+        if(o1 == protocol_state.psk.cycle_length) o1 = 0;
+        o2++;
+        if(o2 == protocol_state.psk.cycle_length) o2 = 0;
+    }
+    return 0;
+}
+
 static void valid_read() {
+    int max_so_far = 0;
+    int min_so_far = 0;
+    memset(protocol_state.psk.decoded_bytes, 0, sizeof(protocol_state.psk.decoded_bytes));
+
+    for(int i=1; i<protocol_state.psk.cycle_length; i++) {
+        if(cmp(i, max_so_far) > 0) max_so_far = i;
+        else if(cmp(i, min_so_far) < 0) min_so_far = i;
+    }
+
+    if(cmp_inv(max_so_far, min_so_far) < 0) {
+        // Inverted max is smaller than min
+        min_so_far = max_so_far;
+        int o = min_so_far;
+        for(int i=0; i<protocol_state.psk.cycle_length; i++) {
+            protocol_state.psk.decoded_bits[o] = 1 - protocol_state.psk.decoded_bits[o];
+            o++;
+            if(o == protocol_state.psk.cycle_length) o = 0;
+        }
+    }
+    
+    int o = min_so_far;
+    for(int i=0; i<protocol_state.psk.cycle_length; i++) {
+        if(protocol_state.psk.decoded_bits[o]) {
+            protocol_state.psk.decoded_bytes[i >> 3] |= 1 << (7 - (i & 7));
+        }
+        o++;
+        if(o == protocol_state.psk.cycle_length) o = 0;
+    }
 }
 
 static void read_new_bit(int8_t bit) {
