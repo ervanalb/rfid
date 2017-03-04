@@ -3,21 +3,37 @@
 #include "hal.h"
 #include <string.h>
 
+static void valid_read() {
+}
+
 static void read_new_bit(int8_t bit) {
-    protocol_state.psk.decoded_bits[protocol_state.psk.decoded_bits_ptr] = bit;
+    if(protocol_state.psk.decoded_bits[protocol_state.psk.decoded_bits_ptr] != bit) {
+        protocol_state.psk.decoded_bits[protocol_state.psk.decoded_bits_ptr] = bit;
+        protocol_state.psk.cycle.counter = 0;
+        led_read_on();
+    }
+    if(protocol_state.psk.cycle.counter >= 0) {
+        protocol_state.psk.cycle.counter++;
+        if(protocol_state.psk.cycle.counter >= protocol_state.psk.cycle_length * protocol_state.psk.repeats_until_valid) {
+            valid_read();
+            led_read_off();
+            protocol_state.psk.cycle.counter = -1;
+        }
+    }
     protocol_state.psk.decoded_bits_ptr++;
-    if(protocol_state.psk.decoded_bits_ptr > 2 * protocol_state.psk.cycle_length) {
-        protocol_state.psk.decoded_bits_ptr -= 2 * protocol_state.psk.cycle_length;
+    if(protocol_state.psk.decoded_bits_ptr >= protocol_state.psk.cycle_length) {
+        protocol_state.psk.decoded_bits_ptr -= protocol_state.psk.cycle_length;
     }
 }
 
 void protocol_psk_init() {
     memset(&protocol_state.psk, 0, sizeof(protocol_state.psk));
     protocol_state.psk.hpf.alpha = 0.95 * 65536;
-    protocol_state.psk.lpf.alpha = 0.95 * 65536;
+    protocol_state.psk.lpf.alpha = 0.10 * 65536;
     protocol_state.psk.demod.carrier = 1;
     protocol_state.psk.bit_width = 32;
     protocol_state.psk.cycle_length = 224;
+    protocol_state.psk.repeats_until_valid = 3;
 }
 
 void protocol_psk_read() {

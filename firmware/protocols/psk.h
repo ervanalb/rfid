@@ -12,6 +12,7 @@ struct protocol_psk_params {
 struct protocol_psk_state {
     int bit_width;
     int cycle_length;
+    int repeats_until_valid;
 
     int16_t read_buffer[512];
     struct {
@@ -31,7 +32,10 @@ struct protocol_psk_state {
         int32_t bit_sum;
         int32_t prev_lpf_bit;
     } clock_recovery;
+    struct {
+        int counter;
+    } cycle;
 
-    int8_t decoded_bits[224 * 2];
+    int8_t decoded_bits[224];
     int decoded_bits_ptr;
 };
