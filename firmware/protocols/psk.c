@@ -94,6 +94,13 @@ void protocol_psk_init() {
     protocol_state.psk.bit_width = 32;
     protocol_state.psk.cycle_length = 224;
     protocol_state.psk.repeats_until_valid = 3;
+
+    protocol_state.psk.write_poweron_time = 1875;
+    protocol_state.psk.write_programming_time = 1875;
+    protocol_state.psk.write_one = 56;
+    protocol_state.psk.write_zero = 24;
+    protocol_state.psk.write_start_gap = 15;
+    protocol_state.psk.write_gap = 10;
 }
 
 void protocol_psk_read() {
@@ -142,17 +149,99 @@ void protocol_psk_read() {
 
 // WRITE
 
+static void write_gap() {
+    protocol_state.psk.write_val = 0;
+    protocol_state.psk.run_length = protocol_state.psk.write_gap;
+}
+
+static void write_bit(int bit) {
+    protocol_state.psk.write_val = 1;
+    protocol_state.psk.run_length = bit ? protocol_state.psk.write_one : protocol_state.psk.write_zero;
+}
+
 static void write_next() {
     switch(protocol_state.psk.write_state) {
-        case WRITE_IDLE:
+        case WRITE_POWERON:
+            protocol_state.psk.blocks_to_write = 1 + (protocol_state.psk.cycle_length + 31) / 32;
+            protocol_state.psk.write_block = 0;
+            memset(protocol_state.psk.block_data, 0, sizeof(protocol_state.psk.block_data));
+            for(int i=0; i < (protocol_state.psk.cycle_length + 7) / 8; i++) { // For each byte
+                protocol_state.psk.block_data[i / 4 + 1] |= (uint32_t)protocol_state.psk.decoded_bytes[i] << ((3 - (i & 3)) * 8);
+            }
+            protocol_state.psk.block_data[0] = 0x000810e0;
+
+            // Send a poweron sequence of 6250 1s
             protocol_state.psk.write_val = 1;
-            protocol_state.psk.run_length = 10;
-            break;
+            protocol_state.psk.run_length = protocol_state.psk.write_poweron_time;
+            protocol_state.psk.write_state = WRITE_START_GAP;
+            return;
+        case WRITE_START_GAP:
+            // Send a start gap
+            protocol_state.psk.write_bit = 0;
+            protocol_state.psk.write_val = 0;
+            protocol_state.psk.run_length = protocol_state.psk.write_start_gap;
+            protocol_state.psk.write_state = WRITE_DATA;
+            return;
+        case WRITE_DATA:
+            if(protocol_state.psk.write_val == 1) {
+                write_gap();
+                if(protocol_state.psk.write_bit == 37) {
+                    protocol_state.psk.write_state = WRITE_PROGRAMMING_TIME;
+                } else {
+                    protocol_state.psk.write_bit++;
+                }
+                return;
+            }
+            protocol_state.psk.write_val = 1;
+            switch(protocol_state.psk.write_bit) {
+                case 0: // First opcode bit
+                    write_bit(1);
+                    return;
+                case 1: // Second opcode bit (page)
+                    write_bit(0);
+                    return;
+                case 2: // Lock bit
+                    write_bit(0);
+                    return;
+                case 35: // addr[2]
+                    write_bit(protocol_state.psk.write_block & 4);
+                    return;
+                case 36: // addr[1]
+                    write_bit(protocol_state.psk.write_block & 2);
+                    return;
+                case 37: // addr[0]
+                    write_bit(protocol_state.psk.write_block & 1);
+                    return;
+                default: // Block data
+                {
+                    uint32_t block_data = protocol_state.psk.block_data[protocol_state.psk.write_block];
+                    write_bit(block_data & (1 << (34 - protocol_state.psk.write_bit)));
+                    return;
+                }
+            }
+        case WRITE_PROGRAMMING_TIME:
+            // Allow some time for programming
+            protocol_state.psk.write_val = 1;
+            protocol_state.psk.run_length = protocol_state.psk.write_programming_time;
+            protocol_state.psk.write_block++;
+            if(protocol_state.psk.write_block == protocol_state.psk.blocks_to_write) {
+                // Done 
+                protocol_state.psk.write_state = WRITE_DONE;
+            } else {
+                // Next block
+                protocol_state.psk.write_state = WRITE_START_GAP;
+            }
+            return;
+        case WRITE_DONE:
+            protocol_state.psk.write_val = 1;
+            protocol_state.psk.run_length = 6250;
+            return;
     }
 }
 
 void protocol_psk_write() {
     int available = stream_write_space();
+    if(available < 256) return; // XXX TEMP
     while(available > 0) {
         if(protocol_state.psk.run_length == 0) {
             write_next();

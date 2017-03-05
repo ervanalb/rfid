@@ -70,9 +70,9 @@ def write_block(page, block_id, code, lock=False):
     for bit in get_bits(block_id, 3): # 3 bits of block_id
         stream += write_bit(bit)
 
-    block_bits = "{:03b}".format(block_id)
-    for bit in block_bits: # 3 bits of block_id
-        stream += [1] * ONE if bit == "1" else [1] * ZERO
+    #block_bits = "{:03b}".format(block_id)
+    #for bit in block_bits: # 3 bits of block_id
+    #    stream += [1] * ONE if bit == "1" else [1] * ZERO
     stream += [1] * PROGRAMMING_TIME
     return stream
 

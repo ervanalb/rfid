@@ -43,9 +43,24 @@ struct protocol_psk_state {
     int decoded_bits_ptr;
 
     // WRITER
+    int write_poweron_time;
+    int write_programming_time;
+    int write_one;
+    int write_zero;
+    int write_start_gap;
+    int write_gap;
+
+    int blocks_to_write;
     int8_t write_val;
     int run_length;
     enum {
-        WRITE_IDLE
+        WRITE_POWERON,
+        WRITE_START_GAP,
+        WRITE_DATA,
+        WRITE_PROGRAMMING_TIME,
+        WRITE_DONE
     } write_state;
+    uint32_t block_data[8];
+    int write_bit;
+    int write_block;
 };

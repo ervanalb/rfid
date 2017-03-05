@@ -47,7 +47,7 @@ void transition(enum state new_state) {
             stream_write_disable();
             stream_read_disable();
             coil_drive();
-            stream_read_enable();
+            stream_write_enable();
             led_read_off();
             led_write_on();
             led_spoof_off();
