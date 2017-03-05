@@ -7,6 +7,18 @@ extern const struct protocol_fns {
     void (*read)();
     void (*write)();
     void (*spoof)();
+
+    void (*enter_read)();
+    void (*enter_write)();
+    void (*enter_spoof)();
+
+    void (*exit_read)();
+    void (*exit_write)();
+    void (*exit_spoof)();
+
+    void (*trigger_read)();
+    void (*trigger_write)();
+    void (*trigger_spoof)();
 } protocol_fns[];
 
 extern union protocol_state {

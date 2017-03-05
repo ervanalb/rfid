@@ -35,6 +35,9 @@ static volatile int16_t latency = DEFAULT_LATENCY;
 
 USB_CORE_HANDLE  USB_Device_dev;
 
+volatile int led_timer;
+volatile int button_timer;
+
 // Bring up all hardware
 void init() {
     GPIO_InitTypeDef GPIO_InitStruct;
@@ -50,6 +53,10 @@ void init() {
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM14, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG | RCC_APB2Periph_ADC1 |
                            RCC_APB2Periph_TIM1, ENABLE);
+
+    // SysTick
+    SysTick_Config(SystemCoreClock / 1000); // Fires every 1ms
+    NVIC_SetPriority(SysTick_IRQn, 1);
 
     // LEDs
     led_read_off();
@@ -422,6 +429,8 @@ void PendSV_Handler() {
 }
 
 void SysTick_Handler() {
+    if(led_timer > 0) led_timer--;
+    if(button_timer > 0) button_timer--;
 }
 
 void EXTI0_1_IRQHandler() {

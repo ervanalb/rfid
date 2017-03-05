@@ -35,5 +35,8 @@ void set_latency(int16_t l);
 
 extern volatile int stream_read_enabled;
 extern volatile int stream_write_enabled;
+
+extern volatile int led_timer;
+extern volatile int button_timer;
  
 #endif

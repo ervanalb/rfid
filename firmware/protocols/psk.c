@@ -147,6 +147,15 @@ void protocol_psk_read() {
     }
 }
 
+void protocol_psk_enter_read() {
+}
+
+void protocol_psk_trigger_read() {
+}
+
+void protocol_psk_exit_read() {
+}
+
 // WRITE
 
 static void write_gap() {
@@ -161,7 +170,12 @@ static void write_bit(int bit) {
 
 static void write_next() {
     switch(protocol_state.psk.write_state) {
+        case WRITE_IDLE:
+            protocol_state.psk.write_val = 1;
+            protocol_state.psk.run_length = 0;
+            return;
         case WRITE_POWERON:
+            led_write_off(); 
             protocol_state.psk.blocks_to_write = 1 + (protocol_state.psk.cycle_length + 31) / 32;
             protocol_state.psk.write_block = 0;
             memset(protocol_state.psk.block_data, 0, sizeof(protocol_state.psk.block_data));
@@ -225,23 +239,19 @@ static void write_next() {
             protocol_state.psk.run_length = protocol_state.psk.write_programming_time;
             protocol_state.psk.write_block++;
             if(protocol_state.psk.write_block == protocol_state.psk.blocks_to_write) {
-                // Done 
-                protocol_state.psk.write_state = WRITE_DONE;
+                // Done
+                led_write_on(); 
+                protocol_state.psk.write_state = WRITE_IDLE;
             } else {
                 // Next block
                 protocol_state.psk.write_state = WRITE_START_GAP;
             }
-            return;
-        case WRITE_DONE:
-            protocol_state.psk.write_val = 1;
-            protocol_state.psk.run_length = 6250;
             return;
     }
 }
 
 void protocol_psk_write() {
     int available = stream_write_space();
-    if(available < 256) return; // XXX TEMP
     while(available > 0) {
         if(protocol_state.psk.run_length == 0) {
             write_next();
@@ -253,8 +263,30 @@ void protocol_psk_write() {
     }
 }
 
+void protocol_psk_enter_write() {
+     protocol_state.psk.write_state = WRITE_IDLE;
+}
+
+void protocol_psk_trigger_write() {
+    if(protocol_state.psk.write_state == WRITE_IDLE) {
+         protocol_state.psk.write_state = WRITE_POWERON;
+    }
+}
+
+void protocol_psk_exit_write() {
+}
+
 // SPOOF
 
 void protocol_psk_spoof() {
+}
+
+void protocol_psk_enter_spoof() {
+}
+
+void protocol_psk_trigger_spoof() {
+}
+
+void protocol_psk_exit_spoof() {
 }
 

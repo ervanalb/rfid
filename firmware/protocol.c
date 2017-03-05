@@ -3,9 +3,22 @@
 const struct protocol_fns protocol_fns[] = {
     {
         .init  = protocol_psk_init,
+
         .read  = protocol_psk_read,
         .write = protocol_psk_write,
         .spoof = protocol_psk_spoof,
+
+        .enter_read  = protocol_psk_enter_read,
+        .enter_write = protocol_psk_enter_write,
+        .enter_spoof = protocol_psk_enter_spoof,
+
+        .exit_read  = protocol_psk_exit_read,
+        .exit_write = protocol_psk_exit_write,
+        .exit_spoof = protocol_psk_exit_spoof,
+
+        .trigger_read  = protocol_psk_trigger_read,
+        .trigger_write = protocol_psk_trigger_write,
+        .trigger_spoof = protocol_psk_trigger_spoof,
     }
 };
 

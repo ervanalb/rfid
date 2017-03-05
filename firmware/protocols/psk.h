@@ -6,6 +6,18 @@ void protocol_psk_read();
 void protocol_psk_write();
 void protocol_psk_spoof();
 
+void protocol_psk_enter_read();
+void protocol_psk_enter_write();
+void protocol_psk_enter_spoof();
+
+void protocol_psk_exit_read();
+void protocol_psk_exit_write();
+void protocol_psk_exit_spoof();
+
+void protocol_psk_trigger_read();
+void protocol_psk_trigger_write();
+void protocol_psk_trigger_spoof();
+
 struct protocol_psk_params {
 };
 
@@ -17,7 +29,7 @@ struct protocol_psk_state {
     uint8_t decoded_bytes[28];
 
     // READER
-    int16_t read_buffer[256];
+    int16_t read_buffer[128];
     struct {
         int32_t alpha; // Alpha as a 16.16 fixed point number
         int32_t prev_x;
@@ -54,11 +66,11 @@ struct protocol_psk_state {
     int8_t write_val;
     int run_length;
     enum {
+        WRITE_IDLE,
         WRITE_POWERON,
         WRITE_START_GAP,
         WRITE_DATA,
         WRITE_PROGRAMMING_TIME,
-        WRITE_DONE
     } write_state;
     uint32_t block_data[8];
     int write_bit;
