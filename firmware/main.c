@@ -1,6 +1,7 @@
 #include "main.h"
 #include "hal.h"
 #include "button.h"
+#include "led.h"
 #include "protocol.h"
 
 enum state state = STATE_REMOTE;
@@ -11,6 +12,7 @@ int main() {
     transition(STATE_READ);
     for(;;) {
         enum button_event button_ev = button_event();
+        led();
         switch(state) {
             case STATE_READ:
                 protocol->read();
@@ -58,9 +60,10 @@ void transition(enum state new_state) {
             stream_read_disable();
             stream_read_enable();
             coil_drive();
-            led_read_on();
             led_write_off();
             led_spoof_off();
+            led_set_current(LED_READ);
+            led_event(LED_EVENT_ON);
             protocol->enter_read();
             break;
         case STATE_WRITE:
@@ -69,8 +72,9 @@ void transition(enum state new_state) {
             coil_drive();
             stream_write_enable();
             led_read_off();
-            led_write_on();
             led_spoof_off();
+            led_set_current(LED_WRITE);
+            led_event(LED_EVENT_ON);
             protocol->enter_write();
             break;
         case STATE_SPOOF:
@@ -80,7 +84,8 @@ void transition(enum state new_state) {
             coil_tune();
             led_read_off();
             led_write_off();
-            led_spoof_on();
+            led_set_current(LED_SPOOF);
+            led_event(LED_EVENT_ON);
             protocol->enter_spoof();
             break;
         case STATE_REMOTE:
@@ -91,6 +96,7 @@ void transition(enum state new_state) {
             led_read_off();
             led_write_off();
             led_spoof_off();
+            led_event(LED_EVENT_OFF);
             break;
     }
 }

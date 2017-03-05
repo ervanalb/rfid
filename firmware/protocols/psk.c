@@ -2,6 +2,7 @@
 #include "protocol.h"
 #include "hal.h"
 #include <string.h>
+#include "led.h"
 
 // READ
 
@@ -70,13 +71,13 @@ static void read_new_bit(int8_t bit) {
     if(protocol_state.psk.decoded_bits[protocol_state.psk.decoded_bits_ptr] != bit) {
         protocol_state.psk.decoded_bits[protocol_state.psk.decoded_bits_ptr] = bit;
         protocol_state.psk.cycle.counter = 0;
-        led_read_on();
+        led_event(LED_EVENT_ON);
     }
     if(protocol_state.psk.cycle.counter >= 0) {
         protocol_state.psk.cycle.counter++;
         if(protocol_state.psk.cycle.counter >= protocol_state.psk.cycle_length * protocol_state.psk.repeats_until_valid) {
             valid_read();
-            led_read_off();
+            led_event(LED_EVENT_RAPID_BLINK);
             protocol_state.psk.cycle.counter = -1;
         }
     }
@@ -175,7 +176,7 @@ static void write_next() {
             protocol_state.psk.run_length = 0;
             return;
         case WRITE_POWERON:
-            led_write_off(); 
+            led_event(LED_EVENT_RAPID_BLINK);
             protocol_state.psk.blocks_to_write = 1 + (protocol_state.psk.cycle_length + 31) / 32;
             protocol_state.psk.write_block = 0;
             memset(protocol_state.psk.block_data, 0, sizeof(protocol_state.psk.block_data));
@@ -240,7 +241,7 @@ static void write_next() {
             protocol_state.psk.write_block++;
             if(protocol_state.psk.write_block == protocol_state.psk.blocks_to_write) {
                 // Done
-                led_write_on(); 
+                led_event(LED_EVENT_ON);
                 protocol_state.psk.write_state = WRITE_IDLE;
             } else {
                 // Next block
