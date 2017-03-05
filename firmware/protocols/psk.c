@@ -9,14 +9,20 @@
 // Returns - if o1 < o2
 // Returns + in o1 > o2
 // Returns 0 in o1 = o2
+
 static int cmp(int o1, int o2) {
-    for(int i=0; i<protocol_state.psk.cycle_length; i++) {
-        int8_t c = protocol_state.psk.decoded_bits[o1] - protocol_state.psk.decoded_bits[o2];
+    int o1bytes = o1 / 8;
+    int o2bytes = o2 / 8;
+    int o1bits = 8 - (o1 & 7);
+    int o2bits = 8 - (o2 & 7);
+    int cycle_length_bytes = (protocol_state.psk.cycle_length + 7) / 8;
+    for(int i=0; i<cycle_length_bytes; i++) {
+        int c = ((protocol_state.psk.decoder.cyclotron[o1bytes] >> o1bits) & 0xFF) - ((protocol_state.psk.decoder.cyclotron[o2bytes] >> o2bits) & 0xFF);
         if(c != 0) return c;
-        o1++;
-        if(o1 == protocol_state.psk.cycle_length) o1 = 0;
-        o2++;
-        if(o2 == protocol_state.psk.cycle_length) o2 = 0;
+        o1bytes++;
+        if(o1bytes == cycle_length_bytes) o1bytes = 0;
+        o2bytes++;
+        if(o2bytes == cycle_length_bytes) o2bytes = 0;
     }
     return 0;
 }
@@ -24,14 +30,20 @@ static int cmp(int o1, int o2) {
 // Returns - if ~o1 < o2
 // Returns + in ~o1 > o2
 // Returns 0 in ~o1 = o2
+
 static int cmp_inv(int o1, int o2) {
-    for(int i=0; i<protocol_state.psk.cycle_length; i++) {
-        int8_t c = 1 - protocol_state.psk.decoded_bits[o1] - protocol_state.psk.decoded_bits[o2];
+    int o1bytes = o1 / 8;
+    int o2bytes = o2 / 8;
+    int o1bits = 8 - (o1 & 7);
+    int o2bits = 8 - (o2 & 7);
+    int cycle_length_bytes = (protocol_state.psk.cycle_length + 7) / 8;
+    for(int i=0; i<cycle_length_bytes; i++) {
+        int c = (((~protocol_state.psk.decoder.cyclotron[o1bytes]) >> o1bits) & 0xFF) - ((protocol_state.psk.decoder.cyclotron[o2bytes] >> o2bits) & 0xFF);
         if(c != 0) return c;
-        o1++;
-        if(o1 == protocol_state.psk.cycle_length) o1 = 0;
-        o2++;
-        if(o2 == protocol_state.psk.cycle_length) o2 = 0;
+        o1bytes++;
+        if(o1bytes == cycle_length_bytes) o1bytes = 0;
+        o2bytes++;
+        if(o2bytes == cycle_length_bytes) o2bytes = 0;
     }
     return 0;
 }
@@ -39,39 +51,52 @@ static int cmp_inv(int o1, int o2) {
 static void valid_read() {
     int max_so_far = 0;
     int min_so_far = 0;
-    memset(protocol_state.psk.decoded_bytes, 0, sizeof(protocol_state.psk.decoded_bytes));
+    memset(protocol_state.psk.decoder.cyclotron, 0, sizeof(protocol_state.psk.decoder.cyclotron));
+    memset(protocol_state.psk.card_data, 0, sizeof(protocol_state.psk.card_data));
+
+    // Set up the cyclotron bit supercollider
+    for(int i=0; i<sizeof(protocol_state.psk.decoder.cyclotron) / sizeof(uint16_t); i++) {
+        for(int j=0; j<8; j++) {
+            int bit = i * 8 + j;
+            while(bit >= protocol_state.psk.cycle_length) bit -= protocol_state.psk.cycle_length;
+            protocol_state.psk.decoder.cyclotron[i] |= (uint16_t)protocol_state.psk.decoder.bits[bit] << (15 - j);
+        }
+    }
+
+    for(int i=0; i<sizeof(protocol_state.psk.decoder.cyclotron) / sizeof(uint16_t) - 1; i++) {
+        protocol_state.psk.decoder.cyclotron[i] |= protocol_state.psk.decoder.cyclotron[i+1] >> 8;
+    }
+    protocol_state.psk.decoder.cyclotron[sizeof(protocol_state.psk.decoder.cyclotron) / sizeof(uint16_t) - 1] |= protocol_state.psk.decoder.cyclotron[0] >> 8;
 
     for(int i=1; i<protocol_state.psk.cycle_length; i++) {
         if(cmp(i, max_so_far) > 0) max_so_far = i;
         else if(cmp(i, min_so_far) < 0) min_so_far = i;
     }
 
+    int cycle_length_bytes = (protocol_state.psk.cycle_length + 7) / 8;
+
     if(cmp_inv(max_so_far, min_so_far) < 0) {
         // Inverted max is smaller than min
         min_so_far = max_so_far;
-        int o = min_so_far;
-        for(int i=0; i<protocol_state.psk.cycle_length; i++) {
-            protocol_state.psk.decoded_bits[o] = 1 - protocol_state.psk.decoded_bits[o];
-            o++;
-            if(o == protocol_state.psk.cycle_length) o = 0;
+        for(int i=0; i<cycle_length_bytes; i++) {
+            protocol_state.psk.decoder.cyclotron[i] = ~protocol_state.psk.decoder.cyclotron[i];
         }
     }
-    
-    int o = min_so_far;
-    for(int i=0; i<protocol_state.psk.cycle_length; i++) {
-        if(protocol_state.psk.decoded_bits[o]) {
-            protocol_state.psk.decoded_bytes[i >> 3] |= 1 << (7 - (i & 7));
-        }
-        o++;
-        if(o == protocol_state.psk.cycle_length) o = 0;
+
+    int obytes = min_so_far / 8;
+    int obits = 8 - (min_so_far & 7);
+    for(int i=0; i<cycle_length_bytes; i++) {
+        protocol_state.psk.card_data[i] = (protocol_state.psk.decoder.cyclotron[obytes] >> obits) & 0xFF;
+        obytes++;
+        if(obytes == cycle_length_bytes) obytes = 0;
     }
 }
 
 static void read_new_bit(int8_t bit) {
-    if(protocol_state.psk.decoded_bits[protocol_state.psk.decoded_bits_ptr] != bit) {
-        protocol_state.psk.decoded_bits[protocol_state.psk.decoded_bits_ptr] = bit;
+    if(protocol_state.psk.decoder.bits[protocol_state.psk.decoder.bits_ptr] != bit) {
+        protocol_state.psk.decoder.bits[protocol_state.psk.decoder.bits_ptr] = bit;
+        if(protocol_state.psk.cycle.counter < 0) led_event(LED_EVENT_ON);
         protocol_state.psk.cycle.counter = 0;
-        led_event(LED_EVENT_ON);
     }
     if(protocol_state.psk.cycle.counter >= 0) {
         protocol_state.psk.cycle.counter++;
@@ -81,9 +106,9 @@ static void read_new_bit(int8_t bit) {
             protocol_state.psk.cycle.counter = -1;
         }
     }
-    protocol_state.psk.decoded_bits_ptr++;
-    if(protocol_state.psk.decoded_bits_ptr >= protocol_state.psk.cycle_length) {
-        protocol_state.psk.decoded_bits_ptr -= protocol_state.psk.cycle_length;
+    protocol_state.psk.decoder.bits_ptr++;
+    if(protocol_state.psk.decoder.bits_ptr >= protocol_state.psk.cycle_length) {
+        protocol_state.psk.decoder.bits_ptr -= protocol_state.psk.cycle_length;
     }
 }
 
@@ -127,7 +152,7 @@ void protocol_psk_read() {
         int lpf_bit = (lpf_sample >= 0) ? 1 : 0;
 
         // Clock recovery
-        protocol_state.psk.clock_recovery.t += 1;
+        protocol_state.psk.clock_recovery.t++;
         if(protocol_state.psk.clock_recovery.t >= protocol_state.psk.bit_width) {
             int32_t bit_val = protocol_state.psk.clock_recovery.bit_sum;
             read_new_bit(bit_val >= 0 ? 1 : 0);
@@ -181,7 +206,7 @@ static void write_next() {
             protocol_state.psk.write_block = 0;
             memset(protocol_state.psk.block_data, 0, sizeof(protocol_state.psk.block_data));
             for(int i=0; i < (protocol_state.psk.cycle_length + 7) / 8; i++) { // For each byte
-                protocol_state.psk.block_data[i / 4 + 1] |= (uint32_t)protocol_state.psk.decoded_bytes[i] << ((3 - (i & 3)) * 8);
+                protocol_state.psk.block_data[i / 4 + 1] |= (uint32_t)protocol_state.psk.card_data[i] << ((3 - (i & 3)) * 8);
             }
             protocol_state.psk.block_data[0] = 0x000810e0;
 

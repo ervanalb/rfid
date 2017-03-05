@@ -26,7 +26,7 @@ struct protocol_psk_state {
     int bit_width;
     int cycle_length;
     int repeats_until_valid;
-    uint8_t decoded_bytes[28];
+    uint8_t card_data[28];
 
     // READER
     int16_t read_buffer[128];
@@ -51,8 +51,11 @@ struct protocol_psk_state {
         int counter;
     } cycle;
 
-    int8_t decoded_bits[224];
-    int decoded_bits_ptr;
+    struct {
+        int8_t bits[224];
+        int bits_ptr;
+        uint16_t cyclotron[28];
+    } decoder;
 
     // WRITER
     int write_poweron_time;
