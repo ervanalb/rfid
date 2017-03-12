@@ -19,19 +19,31 @@ void protocol_psk_trigger_write();
 void protocol_psk_trigger_spoof();
 
 struct protocol_psk_params {
-};
-
-struct protocol_psk_state {
     // SHARED
     int bit_width;
     int cycle_length;
     int repeats_until_valid;
+
+    // READER
+    int32_t hpf_alpha; // Alpha as a 16.16 fixed point number
+    int32_t lpf_alpha; // Alpha as a 16.16 fixed point number
+
+    // WRITER
+    int write_poweron_time;
+    int write_programming_time;
+    int write_one;
+    int write_zero;
+    int write_start_gap;
+    int write_gap;
+};
+
+struct protocol_psk_state {
+    // SHARED
     uint8_t card_data[28];
 
     // READER
     int16_t read_buffer[128];
     struct {
-        int32_t alpha; // Alpha as a 16.16 fixed point number
         int32_t prev_x;
         int32_t prev_y;
     } hpf;
@@ -39,7 +51,6 @@ struct protocol_psk_state {
         int32_t carrier;
     } demod;
     struct {
-        int32_t alpha; // Alpha as a 16.16 fixed point number
         int32_t prev_y;
     } lpf;
     struct {
@@ -58,12 +69,6 @@ struct protocol_psk_state {
     } decoder;
 
     // WRITER
-    int write_poweron_time;
-    int write_programming_time;
-    int write_one;
-    int write_zero;
-    int write_start_gap;
-    int write_gap;
 
     int blocks_to_write;
     int8_t write_val;

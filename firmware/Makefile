@@ -3,6 +3,7 @@
 # Files to include
 C_SRC  = $(wildcard *.c)
 C_SRC += $(wildcard usb/*.c)
+C_SRC += $(wildcard fatfs/*.c)
 C_SRC += $(wildcard protocols/*.c)
 C_SRC += $(wildcard lib/STM32F0xx_StdPeriph_Driver/src/*.c)
 C_SRC += $(wildcard lib/usb-fs/src/*.c)
@@ -14,7 +15,7 @@ PROJECT = rfid
 
 LIBRARIES = 
 
-INC  = -I. -Iusb -Iprotocols
+INC  = -I. -Iusb -Iprotocols -Ifatfs
 INC += -Ilib/CMSIS/Include -Ilib/CMSIS/Device/ST/STM32F0xx/Include
 INC += -Ilib/STM32F0xx_StdPeriph_Driver/inc
 INC += -Ilib/usb-fs/inc

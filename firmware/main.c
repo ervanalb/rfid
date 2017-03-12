@@ -7,8 +7,9 @@
 enum state state = STATE_REMOTE;
 
 int main() {
-    protocol_change(&protocol_fns[0]);
     init();
+
+    protocol_change(&protocol_fns[0]);
     transition(STATE_READ);
     for(;;) {
         enum button_event button_ev = button_event();

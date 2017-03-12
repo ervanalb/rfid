@@ -52,7 +52,7 @@ void init() {
                           RCC_AHBPeriph_DMA1, ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM14, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_SYSCFG | RCC_APB2Periph_ADC1 |
-                           RCC_APB2Periph_TIM1, ENABLE);
+                           RCC_APB2Periph_TIM1 | RCC_APB2Periph_SPI1, ENABLE);
 
     // SysTick
     SysTick_Config(SystemCoreClock / 1000); // Fires every 1ms
@@ -260,86 +260,86 @@ void coil_float() {TIM14->CCER &= ~TIM_OutputState_Enable;}
 void coil_tune() {GPIOA->BSRR = GPIO_Pin_3;}
 void coil_detune() {GPIOA->BRR = GPIO_Pin_3;}
 
-static void sd_set_cs_high() {
-    while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_BSY));
-    GPIOA->BSRR = GPIO_Pin_4;
-}
-
-static void sd_set_cs_low() {
-    while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_BSY));
-    GPIOA->BRR = GPIO_Pin_4;
-}
-
-static void sd_write_byte(uint8_t byte) {
-    SPI_SendData8(SPI1, byte);
-    while(!SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE));
-}
-
-static uint8_t sd_read_response() {
-    uint16_t timeout;
-    uint8_t response;
-
-    while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_BSY));
-    SPI_ReceiveData8(SPI1);
-
-    timeout = SD_TIMEOUT;
-    while(timeout--)
-    {
-        SPI_SendData8(SPI1, 0xFF);
-        while(!SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE));
-        response = SPI_ReceiveData8(SPI1);
-        if(response != 0xFF) break;
-    }
-    return response;
-}
-
-int sd_init() {
-    SPI_InitTypeDef SPI_InitStruct;
-
-    SPI_I2S_DeInit(SPI1);
-    SPI_InitStruct.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
-    SPI_InitStruct.SPI_Mode = SPI_Mode_Master;
-    SPI_InitStruct.SPI_DataSize = SPI_DataSize_8b;
-
-    SPI_InitStruct.SPI_CPOL = SPI_CPOL_High;
-    SPI_InitStruct.SPI_CPHA = SPI_CPHA_2Edge;
-    SPI_InitStruct.SPI_NSS = SPI_NSS_Soft;
-    SPI_InitStruct.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_128; // 375 KHz
-    SPI_InitStruct.SPI_FirstBit = SPI_FirstBit_MSB;
-    SPI_InitStruct.SPI_CRCPolynomial = 7;
-    SPI_Init(SPI1,&SPI_InitStruct);
-    SPI_Cmd(SPI1, ENABLE);
-
-    // Leave CS high
-    for(int i = 0; i < 10; i++) // Apply 80 clock pulses
-    {
-        sd_write_byte(0xFF);
-    }
-
-    sd_set_cs_low();
-
-    sd_write_byte(0x40);
-    sd_write_byte(0x00);
-    sd_write_byte(0x00);
-    sd_write_byte(0x00);
-    sd_write_byte(0x00);
-    sd_write_byte(0x95);
-
-    uint8_t r;
-    r = sd_read_response();
-
-    sd_set_cs_high();
-
-    if(r == 0xFF) return -1; // Timeout
-    if(r != 0x01) return -2; // Card error
-
-    SPI_I2S_DeInit(SPI1);
-    SPI_InitStruct.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4; // 12 MHz
-    SPI_Init(SPI1,&SPI_InitStruct);
-    SPI_Cmd(SPI1, ENABLE);
-
-    return 0;
-}
+//static void sd_set_cs_high() {
+//    while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_BSY));
+//    GPIOA->BSRR = GPIO_Pin_4;
+//}
+//
+//static void sd_set_cs_low() {
+//    while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_BSY));
+//    GPIOA->BRR = GPIO_Pin_4;
+//}
+//
+//static void sd_write_byte(uint8_t byte) {
+//    SPI_SendData8(SPI1, byte);
+//    while(!SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE));
+//}
+//
+//static uint8_t sd_read_response() {
+//    uint16_t timeout;
+//    uint8_t response;
+//
+//    while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_BSY));
+//    SPI_ReceiveData8(SPI1);
+//
+//    timeout = SD_TIMEOUT;
+//    while(timeout--)
+//    {
+//        SPI_SendData8(SPI1, 0xFF);
+//        while(!SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE));
+//        response = SPI_ReceiveData8(SPI1);
+//        if(response != 0xFF) break;
+//    }
+//    return response;
+//}
+//
+//int sd_init() {
+//    SPI_InitTypeDef SPI_InitStruct;
+//
+//    SPI_I2S_DeInit(SPI1);
+//    SPI_InitStruct.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
+//    SPI_InitStruct.SPI_Mode = SPI_Mode_Master;
+//    SPI_InitStruct.SPI_DataSize = SPI_DataSize_8b;
+//
+//    SPI_InitStruct.SPI_CPOL = SPI_CPOL_High;
+//    SPI_InitStruct.SPI_CPHA = SPI_CPHA_2Edge;
+//    SPI_InitStruct.SPI_NSS = SPI_NSS_Soft;
+//    SPI_InitStruct.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_128; // 375 KHz
+//    SPI_InitStruct.SPI_FirstBit = SPI_FirstBit_MSB;
+//    SPI_InitStruct.SPI_CRCPolynomial = 7;
+//    SPI_Init(SPI1,&SPI_InitStruct);
+//    SPI_Cmd(SPI1, ENABLE);
+//
+//    // Leave CS high
+//    for(int i = 0; i < 10; i++) // Apply 80 clock pulses
+//    {
+//        sd_write_byte(0xFF);
+//    }
+//
+//    sd_set_cs_low();
+//
+//    sd_write_byte(0x40);
+//    sd_write_byte(0x00);
+//    sd_write_byte(0x00);
+//    sd_write_byte(0x00);
+//    sd_write_byte(0x00);
+//    sd_write_byte(0x95);
+//
+//    static volatile uint8_t r;
+//    r = sd_read_response();
+//
+//    sd_set_cs_high();
+//
+//    if(r == 0xFF) return -1; // Timeout
+//    if(r != 0x01) return -2; // Card error
+//
+//    SPI_I2S_DeInit(SPI1);
+//    SPI_InitStruct.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_4; // 12 MHz
+//    SPI_Init(SPI1,&SPI_InitStruct);
+//    SPI_Cmd(SPI1, ENABLE);
+//
+//    return 0;
+//}
 
 // These commands control whether data flows from the coil into memory
 void stream_read_enable() {
