@@ -2,6 +2,9 @@
 
 const struct protocol_fns protocol_fns[] = {
     {
+        .name = PROTOCOL_PSK_NAME,
+        .version = PROTOCOL_PSK_VERSION,
+
         .init  = protocol_psk_init,
 
         .read  = protocol_psk_read,

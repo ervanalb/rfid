@@ -3,6 +3,9 @@
 #include "psk.h"
 
 extern const struct protocol_fns {
+    const char *name;
+    const uint32_t version;
+
     void (*init)();
     void (*read)();
     void (*write)();

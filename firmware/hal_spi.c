@@ -64,6 +64,7 @@ static void spi_set_speed(enum sd_speed speed)
 
 	SPI_Cmd(SPI_SD, DISABLE);
 
+    SPI_I2S_DeInit(SPI_SD);
 	spi.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
 	spi.SPI_Mode = SPI_Mode_Master;
 	spi.SPI_DataSize = SPI_DataSize_8b;
@@ -75,7 +76,7 @@ static void spi_set_speed(enum sd_speed speed)
 	spi.SPI_FirstBit = SPI_FirstBit_MSB;
 	spi.SPI_CRCPolynomial = 7;
 	SPI_Init(SPI_SD, &spi);
-
+    SPI_RxFIFOThresholdConfig(SPI_SD, SPI_RxFIFOThreshold_QF);
 	SPI_Cmd(SPI_SD, ENABLE);
 }
 
@@ -83,10 +84,10 @@ static u8 spi_txrx(u8 data)
 {
 	/* RXNE always happens after TXE, so if this function is used
 	 * we don't need to check for TXE */
-	SPI_SD->DR = data;
+	*(__IO uint8_t *)(&SPI_SD->DR) = data;
 	while ((SPI_SD->SR & SPI_I2S_FLAG_RXNE) == 0)
 		;
-	return SPI_SD->DR;
+    return *(__IO uint8_t *)(&SPI_SD->DR);
 }
 
 

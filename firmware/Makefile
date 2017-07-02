@@ -27,6 +27,7 @@ CFLAGS  = $(AFLAGS) -O2 $(INC) -std=c99 -DUSE_STDPERIPH_DRIVER -Wall
 CFLAGS += -DSTM32F042
 CFLAGS += -DUSE_STDPERIPH_DRIVER
 CFLAGS += -fdata-sections -ffunction-sections
+CFLAGS += -flto
 LFLAGS  = $(CFLAGS) -nostartfiles -Wl,--gc-sections
 
 # Targets

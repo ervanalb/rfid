@@ -3,11 +3,15 @@
 #include "button.h"
 #include "led.h"
 #include "protocol.h"
+#include "sd.h"
 
 enum state state = STATE_REMOTE;
 
 int main() {
     init();
+
+    //sd_startup();
+    //sd_write_f();
 
     protocol_change(&protocol_fns[0]);
     transition(STATE_READ);

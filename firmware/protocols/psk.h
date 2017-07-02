@@ -1,6 +1,9 @@
 #pragma once
 #include <stdint.h>
 
+#define PROTOCOL_PSK_NAME "PSK/T5577"
+#define PROTOCOL_PSK_VERSION 1
+
 void protocol_psk_init();
 void protocol_psk_read();
 void protocol_psk_write();

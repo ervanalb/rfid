@@ -9,8 +9,8 @@
 #define DEFAULT_LATENCY 230
 #define PERIOD 384
 
-#define RX_BUFFER_SIZE 512
-#define TX_BUFFER_SIZE 512
+#define RX_BUFFER_SIZE 256
+#define TX_BUFFER_SIZE 256
 
 // Buffer where samples read from the card are put
 static volatile int16_t rx_buffer[RX_BUFFER_SIZE];
